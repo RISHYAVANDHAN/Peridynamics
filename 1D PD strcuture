@@ -1,0 +1,71 @@
+1D PD code in C++:
+
+-------------------------------------
+
+Pre-processing:
+
+0- inputs:
+
+- Size of the domain
+- Grid spacing (Delta)
+- delta/Delta (Horizon size over grid spacing)
+- Deformation magnitude
+- number of steps to apply deformation (step-size=DEF/number of steps)
+- C1: material constant resistance against change in length
+- NN: material power law
+- Flag: d or f (displacement or force)
+- C_FLG: 0:constant 1:linear 2:quadratic 3:cubic 4:exponential
+
+
+1- Generate the Points
+
+- Create the mesh and the patches
+
+- Create a Structure called Points:
+	
+	- Nr
+	- X
+	- x
+	- Volume
+	- Num-of-Neighbor
+	- Neighbor_List
+	- FLG: (1: it is within the domain 0: it is a patch node) (BC in FEM)
+	- DOF (global free index)
+	- DOC (lobal fixed index)
+
+-------------------------------------
+
+Processing:
+
+Solve the problem
+
+- Calculate point-wise residual and tangent
+  	- iterate over the points
+    	- iterate over the neighbors for each point
+      		- calculate Xi = (X - X_Ngbr) and xi = (x - x_Ngbr)
+      		- L = sqrt(Xi^2); l = sqrt(xi^2);
+      		- Stretch : s = (1.0 / NN) * ( (l / L)^NN - 1);
+      		- CC1 = f(C1,Xi,l,L); (I will give you the function)
+      		- Psi = 1/2 * C1 * L * s^2;
+      		- Residual: R = dPsi/dXi; (hyper-dual numbers)
+      		- Tangent : K = dR/dXi = d^2Psi/dXi^2; (hyper-dual numbers)
+
+- Assemble the global residual and tangent
+	- Similar to the FEM code
+	- Has to be compatible with the solver
+
+- Use an iterative solver 
+	- I will give you the solver
+
+- update the coordinates
+	- Similar to the FEM code
+
+- go to the next load step
+	- Similar to the FEM code
+
+-------------------------------------
+
+Post-processing:
+(output the results in a Paraview file: I will give you a code for that)
+
+-------------------------------------
