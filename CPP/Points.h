@@ -6,41 +6,30 @@
 #define POINTS_H
 #include <iostream>
 #include <vector>
-#include <array>
 
 
 
 class Points {
 public:
-    int Nr{};                             // Nr - position number or number of points
+    int Nr{};                                           // Nr - position number or number of points
     std::vector<double> X;                              // X material coordinates
     std::vector<double> x;                              // x spatial coordinates
-    double volume;                                    // Volume
-    std::vector<int> point_index;
-    std::vector<int> point_list;
-    std::vector<int> neighbour_list_1;                  // 1 Neighbour
-    std::vector<std::array<int, 2>> neighbour_list_2;   // 2 Neighbours
-    std::vector<std::array<int, 3>> neighbour_list_3;   // 3 Neighbours
-    std::vector<double> neighbour_index;
+    double volume{};                                      // Volume
+    std::vector<std::vector<int>> point_list;
+    std::vector<std::vector<int>> neighbour_list;       // consolidated neighbour_list containing 1/2/3 depending on PD
     int Flag = 0;                                       // Flag (0 for patches, 1 for points)
     int DOC = 0;                                        // temporary names DOC and DOF for global free index and global fixed index
     int DOF = 0;
     int BC = 0;                                         // 0 - patches, 1 - points
 
     // Constructor for initializing Points object with necessary data
-    explicit Points(const int Nr)
+    explicit Points(int Nr, std::vector<double>& X, std::vector<double>& x, double volume )
     : Nr(Nr),
-      X(Nr, 0.0),
-      x(Nr, 0.0),
-      volume(1.0),
-      point_index(Nr, 0),
-      point_list(Nr, 0),
-      neighbour_list_1(Nr, 0),
-      neighbour_list_2(Nr, {0, 0}),
-      neighbour_list_3(Nr, {0, 0, 0}),
-      neighbour_index(Nr, 0.0)
-      {
-      }
+      X(std::move(X)),
+      x(x),
+      volume(volume)
+    {
+    }
 
     Points() = default;
 

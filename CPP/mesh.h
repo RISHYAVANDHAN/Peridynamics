@@ -8,65 +8,105 @@
 #include "Points.h"
 #include <iostream>
 #include <vector>
-#include <array>
 
 
-inline std::tuple<std::vector<int>, std::vector<int>, std::vector<std::array<int, 2>>, std::vector<std::array<int, 3>>>
-generate_mesh(int PD, int number_of_points, int Partition, int degree, double domain_size, int number_of_patches, int BC, int Delta, int number_of_neighbours) {
+std::vector<Points> generate_mesh(int PD, int number_of_points, int Partition, int degree, double domain_size, int number_of_patches, double Delta, int number_of_right_patches) {
     std::cout << "Generating mesh..." << std::endl;
 
-    int free_points = Partition;
-    double dx = domain_size / (degree * free_points);
-    double X = 0.0;
-    double x = 0.0;
-    std::vector point_list(number_of_points, 0);
-    std::vector<int> neighbour_list_1(number_of_points, 0);
-    std::vector<std::array<int, 2>> neighbour_list_2(number_of_points, {0,0});
-    std::vector<std::array<int, 3>> neighbour_list_3(number_of_points, {0,0,0});
+    //int free_points = Partition;
+    //double dx = domain_size / (degree * free_points);
+    std::vector<double> X (3, 0.0) ;
+    std::vector<double> x (3, 0.0);
+    double volume = 1.0;
 
-    std::vector<Points> points;
-    Points point(number_of_points);
-    int total_points = ((number_of_patches * 2) + number_of_points); // patches + points
+    std::vector<Points> point_list;
+    Points point(number_of_points, X, x , volume);
+
+    int total_points = (number_of_patches + number_of_right_patches + number_of_points); // patches + points
     int index = 0;
 
     switch (PD) {
         case 1:
-
             for (int i = 0; i < total_points; i++) {
-
-                if ((i <= number_of_patches) || (i >= (total_points - number_of_patches))) {
-                    BC = 1;
+                point.Nr = index;
+                point.X = { Delta/2 + i*Delta,0 , 0};
+                point.x = point.X;
+                index += 1;
+                point_list.push_back(point);
+                if ((index < (number_of_patches)) || (index > (number_of_patches + number_of_points - 1))) {
+                    point.BC = 0;
                 }
                 else {
-                    BC = 0;
+                    point.BC = 1;
                 }
+            }
+
+        break;
+        case 2:
+            std::cout << "2d implementation trial" << std::endl;
+            for (int i = 0; i < total_points; i++) {
                 for (int j = 0; j < total_points; j++) {
                     point.Nr = index;
-                    point.X = {X + Delta/2 + i*Delta, Delta/2 +j*Delta};
+                    point.X = { Delta/2 + j*Delta, Delta/2 + i * Delta , 0};
                     point.x = point.X;
                     index += 1;
-                    points.push_back(point);
+                    point_list.push_back(point);
                 }
+            }
+            for (auto& i : point_list) {
+                for(int j = 0; j < (total_points*total_points); j++){
+                    if (i.Nr > ((j * total_points) + (number_of_patches - 1)) || (i.Nr < (number_of_patches + number_of_points + (j * total_points)))) {
+                        point.BC = 0;
+                        std::cout << " , BC : " << i.BC <<std::endl;
+                    }
+                    else {
+                        point.BC = 1;
+                        std::cout << " , BC : " << i.BC <<std::endl;
+                    }
+                }
+            }
 
-
+        break;
+        case 3:
+            std::cout << "3d implementation trial" << std::endl;
+            for (int i = 0; i < total_points; i++) {
+                for (int j = 0; j < total_points; j++) {
+                    for (int k = 0; k < total_points; k++) {
+                        point.Nr = index;
+                        point.X = { Delta/2 + k * Delta, Delta/2 + j * Delta , Delta/2 + i * Delta};
+                        point.x = point.X;
+                        index += 1;
+                        point_list.push_back(point);
+                    }
+                }
             }
         break;
 
         default:
-            std::cout << "Unsupported PD type" << std::endl;
+
         break;
+
     }
 
-    // Return the necessary data: point_list, neighbour_list_1, neighbour_list_2, neighbour_list_3
-    return std::make_tuple(point_list, neighbour_list_1, neighbour_list_2, neighbour_list_3);
+    // Debugging
+
+    for (auto & i : point_list) {
+        std::cout << "Nr: " << i.Nr << ", X: [";
+
+        // Print X vector
+        for (const auto& val : i.X) {
+            std::cout << val << " ";
+        }
+        std::cout << "], x: [";
+
+        // Print x vector
+        for (const auto& val : i.x) {
+            std::cout << val << " ";
+        }
+        std::cout << "], Volume: " << i.volume << std::endl;
+
+    }
+    return point_list;
 }
-
-
-
-
-
-
-
-
 
 #endif //MESH_H
