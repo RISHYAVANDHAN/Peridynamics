@@ -9,7 +9,6 @@
 #include <iostream>
 #include <vector>
 
-
 std::vector<Points> generate_mesh(int PD, int number_of_points, int Partition, int degree, double domain_size, int number_of_patches, double Delta, int number_of_right_patches) {
     std::cout << "Generating mesh..." << std::endl;
 
@@ -57,11 +56,11 @@ std::vector<Points> generate_mesh(int PD, int number_of_points, int Partition, i
                 for(int j = 0; j < (total_points*total_points); j++){
                     if (i.Nr > ((j * total_points) + (number_of_patches - 1)) || (i.Nr < (number_of_patches + number_of_points + (j * total_points)))) {
                         point.BC = 0;
-                        std::cout << " , BC : " << i.BC <<std::endl;
+                        //std::cout << " , BC : " << i.BC <<std::endl;
                     }
                     else {
                         point.BC = 1;
-                        std::cout << " , BC : " << i.BC <<std::endl;
+                        //std::cout << " , BC : " << i.BC <<std::endl;
                     }
                 }
             }
@@ -108,5 +107,7 @@ std::vector<Points> generate_mesh(int PD, int number_of_points, int Partition, i
     }
     return point_list;
 }
+
+
 
 #endif //MESH_H

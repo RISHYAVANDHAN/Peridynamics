@@ -7,4 +7,5 @@ add_executable(CPP main.cpp
         Points.cpp
         Points.h
         mesh.h
+        Neighbour.h
 )
