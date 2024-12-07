@@ -23,7 +23,7 @@ public:
     int BC = 0;                                         // 0 - patches, 1 - points
 
     // Constructor for initializing Points object with necessary data
-    explicit Points(int Nr, std::vector<double>& X, std::vector<double>& x, double volume )
+    Points(int Nr, std::vector<double>& X, std::vector<double>& x, double volume )
     : Nr(Nr),
       X(std::move(X)),
       x(x),

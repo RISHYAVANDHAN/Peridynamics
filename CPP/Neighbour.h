@@ -13,7 +13,7 @@
 //std::vector<std::array<int, 2>> neighbour_list_2;   // 2 Neighbours
 //std::vector<std::array<int, 3>> neighbour_list_3;   // 3 Neighbours
 // 3 seperate lists are not needed, 1 is just enough, it can have everything in it and this can be easily parallelized with pragma openmp
-inline void generate_neighbour_list(int PD, int number_of_points, std::vector<Points>& point_list, int number_of_patches, int number_of_right_patches, int delta) {
+void generate_neighbour_list(int PD, int number_of_points, std::vector<Points>& point_list, int number_of_patches, int number_of_right_patches, int delta) {
     std::vector<Points> working_list;
     std::vector<std::vector<int>> potential_nbrs;
     std::cout << "Generating neighbour list..." << std::endl;
