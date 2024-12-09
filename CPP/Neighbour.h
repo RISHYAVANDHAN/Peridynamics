@@ -24,25 +24,17 @@ void generate_neighbour_list(int PD, int number_of_points, std::vector<Points>& 
     for (auto& i : point_list) {
         for(int j = 0; j < (total_points*total_points); j++){
             if (i.Nr > ((j * total_points) + (number_of_patches - 1)) && (i.Nr < (number_of_patches + number_of_points + (j * total_points)))) {
-                std::cout << i.Nr << std::endl;
                 working_list.push_back(i);
             }
         }
     }
 
     // Debugging to check if working list is what we want
-    std::cout << "Working list: " << std::endl;
+    std::cout << "Working list: " << std::endl<<"Nr:";
     for (auto& i : working_list) {
-        std::cout << "Nr: " << i.Nr << ", X: [";
-        for (const auto& val : i.X) {
-            std::cout << val << " ";
-        }
-        std::cout << "], x: [";
-        for (const auto& val : i.x) {
-            std::cout << val << " ";
-        }
-        std::cout << "], Volume: " << i.volume << std::endl;
+        std::cout << " " << i.Nr;
     }
+    std::cout<<std::endl;
 
     int idx = 0; // just another debugging variable
 
@@ -57,17 +49,17 @@ void generate_neighbour_list(int PD, int number_of_points, std::vector<Points>& 
                         idx++;
                     }
                 }
-                std::cout<<"checkpoint 1." <<std::endl;
-                i.neighbour_list = potential_nbrs;
-                // Debugging to check if the neighbour list is correct
-                for (const auto& nbrs : i.neighbour_list) {
-                    std::cout << "{";
-                    for (const auto& nbr : nbrs) {
-                        std::cout << nbr << ",  ";
-                    }
-                    std::cout << "} ";
+                points.neighbour_list = potential_nbrs;
+            }
+            std::cout<<"checkpoint 1." <<std::endl;
+            // Debugging to check the neighbours
+            for (const auto& nbrs : points.neighbour_list) {
+                for (const auto& nbr : nbrs) {
+                    std::cout << "{ "<<nbr<<",}";
                 }
             }
+            std::cout<<std::endl;
+
         std::cout<<"idx: "<<idx<<std::endl;
         break;
 
@@ -85,17 +77,18 @@ void generate_neighbour_list(int PD, int number_of_points, std::vector<Points>& 
                         }
                     }
                 }
-                std::cout<<"checkpoint 1." <<std::endl;
-                i.neighbour_list = potential_nbrs;
-                // Debugging to check the neighbours
-                for (const auto& nbrs : i.neighbour_list) {
-                    std::cout << "{";
-                    for (const auto& nbr : nbrs) {
-                        std::cout << nbr << ",  ";
-                    }
-                    std::cout << "} ";
-                }
+
+                points.neighbour_list = potential_nbrs;
             }
+            std::cout<<"checkpoint 1." <<std::endl;
+            // Debugging to check the neighbours
+            for (const auto& nbrs : points.neighbour_list) {
+                std::cout << "{";
+                for (const auto& nbr : nbrs) {
+                    std::cout << nbr << ",  ";
+                }
+                std::cout << "} ";
+            }std::cout<<"\n";
         std::cout<<"idx: "<<idx<<std::endl;
         break;
 
@@ -123,18 +116,17 @@ void generate_neighbour_list(int PD, int number_of_points, std::vector<Points>& 
                         }
                     }
                 }
-                i.neighbour_list = potential_nbrs;
-                std::cout<<"checkpoint 1." <<std::endl;
-                // Debugging to check the neighbours
-                for (const auto& nbrs : i.neighbour_list) {
-                    std::cout << "{";
-                    for (const auto& nbr : nbrs) {
-                        std::cout << nbr << ",  ";
-                    }
-                    std::cout << "} ";
-                }
+                points.neighbour_list = potential_nbrs;
             }
-
+            std::cout<<"checkpoint 1." <<std::endl;
+            // Debugging to check the neighbours
+            for (const auto& nbrs : points.neighbour_list) {
+                std::cout << "{";
+                for (const auto& nbr : nbrs) {
+                    std::cout << nbr << ",  ";
+                }
+                std::cout << "} ";
+            }std::cout<<"\n";
         std::cout<<"idx: "<<idx<<std::endl;
         break;
 
