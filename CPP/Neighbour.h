@@ -42,7 +42,7 @@ void generate_neighbour_list(int PD, int number_of_points, std::vector<Points>& 
     switch (PD) {
         case 1:
 
-            for (auto &i : working_list) {
+            for (auto &i : point_list) {
                 for (auto &j : working_list) {
                     if ((i.Nr != j.Nr) && ((std::abs(i.X[0] - j.X[0]) < static_cast<double>(delta)))) {
                         potential_nbrs.push_back({j.Nr}); // 1 neighbour interaction in 1d

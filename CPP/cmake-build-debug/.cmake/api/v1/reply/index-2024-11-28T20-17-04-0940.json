@@ -4,7 +4,7 @@
 		"generator" : 
 		{
 			"multiConfig" : false,
-			"name" : "Ninja"
+			"name" : "MinGW Makefiles"
 		},
 		"paths" : 
 		{
@@ -26,7 +26,7 @@
 	"objects" : 
 	[
 		{
-			"jsonFile" : "codemodel-v2-217ae9efcc573cefa949.json",
+			"jsonFile" : "codemodel-v2-aef5d0456c3c3f737f3a.json",
 			"kind" : "codemodel",
 			"version" : 
 			{
@@ -35,7 +35,7 @@
 			}
 		},
 		{
-			"jsonFile" : "cache-v2-fa0c4850c4139d680c02.json",
+			"jsonFile" : "cache-v2-8f3e3039848132b0f684.json",
 			"kind" : "cache",
 			"version" : 
 			{
@@ -66,7 +66,7 @@
 	{
 		"cache-v2" : 
 		{
-			"jsonFile" : "cache-v2-fa0c4850c4139d680c02.json",
+			"jsonFile" : "cache-v2-8f3e3039848132b0f684.json",
 			"kind" : "cache",
 			"version" : 
 			{
@@ -86,7 +86,7 @@
 		},
 		"codemodel-v2" : 
 		{
-			"jsonFile" : "codemodel-v2-217ae9efcc573cefa949.json",
+			"jsonFile" : "codemodel-v2-aef5d0456c3c3f737f3a.json",
 			"kind" : "codemodel",
 			"version" : 
 			{
