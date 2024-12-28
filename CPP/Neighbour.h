@@ -7,19 +7,19 @@
 #include <iostream>
 #include <memory>
 #include <vector>
-
+#include "mesh.h"
 
 //std::vector<int> neighbour_list_1;                  // 1 Neighbour
 //std::vector<std::array<int, 2>> neighbour_list_2;   // 2 Neighbours
 //std::vector<std::array<int, 3>> neighbour_list_3;   // 3 Neighbours
-// 3 seperate lists are not needed, 1 is just enough, it can have everything in it and this can be easily parallelized with pragma openmp
-void generate_neighbour_list(int PD, int number_of_points, std::vector<Points>& point_list, int number_of_patches, int number_of_right_patches, int delta) {
+// 3 separate lists are not needed, 1 is just enough, it can have everything in it and this can be easily parallelized with pragma openmp
+void generate_neighbour_list(int PD, std::vector<Points>& point_list, int number_of_patches, int number_of_right_patches, int delta) {
     std::vector<Points> working_list;
     std::vector<std::vector<int>> potential_nbrs;
     std::cout << "Generating neighbour list..." << std::endl;
     Points points;
 
-    // seperating the important points from the patches, that´s stored in working list
+    // separating the important points from the patches, that´s stored in working list
     int total_points = (number_of_patches + number_of_right_patches + number_of_points);
     for (auto& i : point_list) {
         for(int j = 0; j < (total_points*total_points); j++){
@@ -31,7 +31,7 @@ void generate_neighbour_list(int PD, int number_of_points, std::vector<Points>& 
 
     // Debugging to check if working list is what we want
     std::cout << "Working list: " << std::endl<<"Nr:";
-    for (auto& i : working_list) {
+    for (const auto& i : working_list) {
         std::cout << " " << i.Nr;
     }
     std::cout<<std::endl;

@@ -9,7 +9,8 @@
 #include <iostream>
 #include <vector>
 
-std::vector<Points> generate_mesh(int PD, int number_of_points, int Partition, int degree, double domain_size, int number_of_patches, double Delta, int number_of_right_patches) {
+inline int number_of_points;
+std::vector<Points> generate_mesh(int PD, int Partition, int degree, double domain_size, int number_of_patches, double Delta, int number_of_right_patches) {
     std::cout << "Generating mesh..." << std::endl;
 
     //int free_points = Partition;
@@ -17,11 +18,16 @@ std::vector<Points> generate_mesh(int PD, int number_of_points, int Partition, i
     std::vector<double> X (3, 0.0) ;
     std::vector<double> x (3, 0.0);
     double volume = 1.0;
+    double extended_domain_size = domain_size + (number_of_patches + number_of_right_patches) * Delta ;
+    std::cout << "Domain size: " << domain_size << " & Extended Domain size: " << extended_domain_size << std::endl;
+    int total_points = extended_domain_size * Delta; // patches + points
 
     std::vector<Points> point_list;
+    number_of_points = total_points - (number_of_right_patches + number_of_patches);
+    std::cout << "Number of Points:" << number_of_points << std::endl;
     Points point(number_of_points, X, x , volume);
 
-    int total_points = (number_of_patches + number_of_right_patches + number_of_points); // patches + points
+
     int index = 0;
 
     switch (PD) {
