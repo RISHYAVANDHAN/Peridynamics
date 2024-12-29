@@ -49,7 +49,7 @@ std::vector<Points> generate_mesh(int PD, int Partition, int degree, double doma
         break;
         case 2:
             std::cout << "2d implementation trial" << std::endl;
-            for (int i = 0; i < total_points; i++) {
+            for (int i = 0; i < number_of_points; i++) {
                 for (int j = 0; j < total_points; j++) {
                     point.Nr = index;
                     point.X = { Delta/2 + j*Delta, Delta/2 + i * Delta , 0};
@@ -74,8 +74,8 @@ std::vector<Points> generate_mesh(int PD, int Partition, int degree, double doma
         break;
         case 3:
             std::cout << "3d implementation trial" << std::endl;
-            for (int i = 0; i < total_points; i++) {
-                for (int j = 0; j < total_points; j++) {
+            for (int i = 0; i < number_of_points; i++) {
+                for (int j = 0; j < number_of_points; j++) {
                     for (int k = 0; k < total_points; k++) {
                         point.Nr = index;
                         point.X = { Delta/2 + k * Delta, Delta/2 + j * Delta , Delta/2 + i * Delta};
