@@ -18,7 +18,15 @@
 //std::vector<std::array<int, 3>> neighbour_list_3;   // 3 Neighbours
 // 3 separate lists are not needed, 1 is just enough, it can have everything in it and this can be easily parallelized with pragma openmp
 
-inline void generate_neighbour_list(int PD, std::vector<Points>& point_list, int number_of_patches, int number_of_right_patches, int delta) {
+inline bool NeighbourCheck(const Points& a, const Points& b, double delta)
+{
+    double diff_x = a.X[0] - b.X[0];
+    double diff_y = a.X[1] - b.X[1];
+    double diff_z = a.X[2] - b.X[2];
+    return sqrt(diff_x * diff_x + diff_y * diff_y + diff_z * diff_z) < delta;
+}
+
+inline std::vector<std::vector<int>> generate_neighbour_list(int PD, std::vector<Points>& point_list, int number_of_patches, int number_of_right_patches, int delta) {
     std::vector<std::vector<int>> potential_nbrs;
     std::cout << "Generating neighbour list..." << std::endl;
     Points points;
@@ -26,103 +34,46 @@ inline void generate_neighbour_list(int PD, std::vector<Points>& point_list, int
     int idx = 0; // just another debugging variable
 
     // comparing the distance of the points from the point in question in 1d, 2d and 3d to find the neighbours and updating the neighbour_list
-    switch (PD) {
-        case 1:
-            for (auto &i : point_list) {
-                //Debugging for checkups
-                std::cout<<"Neighbours of "<<i.Nr<<" are: { ";
-                for (auto &j : point_list) {
-                    if ((i.Nr != j.Nr) && ((std::abs(i.X[0] - j.X[0]) < static_cast<double>(delta)))) {
-                        potential_nbrs.push_back({j.Nr}); // 1 neighbour interaction in 1d
-                        idx++;
-                        std::cout<<j.Nr<<", ";
-                    }
-                }
-                points.neighbour_list = potential_nbrs;
-                std::cout<<"}"<<std::endl;
-            }
+    for (auto &i : point_list) {
+        // Debugging
+        std::cout << "Neighbours of " << i.Nr << " are: " << std::endl << "[ ";
+        std::set<std::vector<int>> unique_triplets;  // Set to store unique triplets
+        for (auto &j : point_list) {
+            if ((i.Nr != j.Nr) && (NeighbourCheck(i,j,delta))) {
+                potential_nbrs.push_back({j.Nr}); // 1 neighbour interaction = also this is it for 1D
+                std::cout << "{" << j.Nr << "}, ";
+                idx++;
+                for (auto &k : point_list) {
+                    if ((k.Nr != j.Nr) && (k.Nr != i.Nr) && (PD != 1) && (NeighbourCheck(k,j,delta)) && (NeighbourCheck(k,i,delta))) {
+                        std::vector<int> pair = {std::min(k.Nr, j.Nr), std::max(k.Nr, j.Nr)};
+                        // Use std::any_of to check for duplicate pairs, and capture pair by reference
+                        if (!std::ranges::any_of(potential_nbrs, [&pair](const std::vector<int>& existing_pair) { return pair == existing_pair; })) {
+                            potential_nbrs.push_back(pair); // 2 neighbour interaction = also this is it for 2D
+                            std::cout << " {" << pair[0] << ", " << pair[1] << "}, ";
+                        }
 
-        std::cout<<"idx: "<<idx<<std::endl;
-        break;
-
-        case 2:
-            for (auto &i : point_list) {
-                //debugging
-                std::cout<<"Neighbours of "<<i.Nr<<" are: "<<std::endl<<"[ ";
-                for (auto &j : point_list) {
-                    if ((i.Nr != j.Nr) && ((std::abs(i.X[0] - j.X[0]) < static_cast<double>(delta))) && ((std::abs(i.X[1] - j.X[1]) < static_cast<double>(delta)))) {
-                        potential_nbrs.push_back({j.Nr}); // 1 neighbour interaction in 2d
-                        std::cout<<"{"<<j.Nr<<"}, ";
-                        for (auto &k : point_list) {
-                            if ((k.Nr != j.Nr) && (k.Nr != i.Nr) && ((std::abs(k.X[0] - j.X[0]) < static_cast<double>(delta))) && ((std::abs(k.X[1] - j.X[1]) < static_cast<double>(delta))) && ((std::abs(k.X[0] - i.X[0]) < static_cast<double>(delta))) && ((std::abs(k.X[1] - i.X[1]) < static_cast<double>(delta))) ) {
-                                //2 neighbour interaction in 2d, creating unique pairs
-                                std::vector<int> pair;
-                                pair = {std::min(k.Nr, j.Nr), std::max(k.Nr, j.Nr)};
-                                // Use std::any_of to check for duplicate pairs, and capture pair by reference
-                                if (!std::ranges::any_of(potential_nbrs, [&pair](const std::vector<int>& existing_pair) {return pair == existing_pair;})) {
-                                    potential_nbrs.push_back(pair); // 2 neighbour interaction in 2D
-                                    std::cout << " {" << pair[0] << ", " << pair[1] << "}, ";
+                        for (auto &l : point_list) {
+                            if ((l.Nr != k.Nr) && (l.Nr != j.Nr) && (l.Nr != i.Nr) && (PD != 2) && (NeighbourCheck(l,k,delta)) && (NeighbourCheck(l,j,delta)) && (NeighbourCheck(l,i,delta)) ) {
+                                std::vector<int> triplet = {std::min({k.Nr, j.Nr, l.Nr}), std::min({std::max(k.Nr, j.Nr), l.Nr}), std::max({k.Nr, j.Nr, l.Nr})};
+                                if (!unique_triplets.contains(triplet)) {
+                                    unique_triplets.insert(triplet); // Only insert unique triplets
+                                    potential_nbrs.push_back(triplet); // 3 neighbour interaction
+                                    std::cout << " {" << triplet[0] << ", " << triplet[1] << ", " << triplet[2] << "}, ";
                                 }
                             }
                         }
                     }
                 }
-                std::cout<<" ]"<<std::endl;
-                points.neighbour_list.insert(points.neighbour_list.end(), potential_nbrs.begin(), potential_nbrs.end());;
             }
-
-        std::cout<<"idx: "<<idx<<std::endl;
-        break;
-
-        case 3:
-            for (auto &i : point_list) {
-                //debugging
-                std::cout<<"Neighbours of "<<i.Nr<<" are: "<<std::endl<<"[ ";
-                std::set<std::vector<int>> unique_triplets;  // Set to store unique triplets
-                for (auto &j : point_list) {
-                    if ((i.Nr != j.Nr) && ((std::abs(i.X[0] - j.X[0]) < static_cast<double>(delta))) && ((std::abs(i.X[1] - j.X[1]) < static_cast<double>(delta))) && ((std::abs(i.X[2] - j.X[2]) < static_cast<double>(delta)))) {
-                        potential_nbrs.push_back({j.Nr}); // 1 neighbour interaction in 3d
-                        std::cout<<"{"<<j.Nr<<"}, ";
-                        for (auto &k : point_list) {
-                            if ((k.Nr != j.Nr) && (k.Nr != i.Nr) &&
-                                ((std::abs(k.X[0] - j.X[0]) < static_cast<double>(delta))) && ((std::abs(k.X[1] - j.X[1]) < static_cast<double>(delta))) && ((std::abs(k.X[2] - i.X[2]) < static_cast<double>(delta))) &&
-                                ((std::abs(k.X[0] - i.X[0]) < static_cast<double>(delta))) && ((std::abs(k.X[1] - i.X[1]) < static_cast<double>(delta))) && ((std::abs(k.X[2] - j.X[2]) < static_cast<double>(delta))) ) {
-                                std::vector<int> pair;
-                                pair = {std::min(k.Nr, j.Nr), std::max(k.Nr, j.Nr)};
-                                // Use std::any_of to check for duplicate pairs, and capture pair by reference
-                                if (!std::ranges::any_of(potential_nbrs, [&pair](const std::vector<int>& existing_pair) {return pair == existing_pair;})) {
-                                    potential_nbrs.push_back(pair); // 2 neighbour interaction in 2D
-                                    std::cout << " {" << pair[0] << ", " << pair[1] << "}, ";
-                                }
-                                for (auto &l : point_list) {
-                                    if ((l.Nr != k.Nr) && (l.Nr != j.Nr) && (l.Nr != i.Nr) &&
-                                    ((std::abs(l.X[0] - k.X[0]) < static_cast<double>(delta))) && ((std::abs(l.X[1] - k.X[1]) < static_cast<double>(delta))) && ((std::abs(l.X[2] - k.X[2]) < static_cast<double>(delta))) &&
-                                    ((std::abs(l.X[0] - j.X[0]) < static_cast<double>(delta))) && ((std::abs(l.X[1] - j.X[1]) < static_cast<double>(delta))) && ((std::abs(l.X[2] - j.X[2]) < static_cast<double>(delta))) &&
-                                    ((std::abs(l.X[0] - i.X[0]) < static_cast<double>(delta))) && ((std::abs(l.X[1] - i.X[1]) < static_cast<double>(delta))) && ((std::abs(l.X[2] - i.X[2]) < static_cast<double>(delta)))){
-                                        std::vector<int> triplet = {std::min({k.Nr, j.Nr, l.Nr}),
-                                                         std::min({std::max(k.Nr, j.Nr), l.Nr}),
-                                                         std::max({k.Nr, j.Nr, l.Nr})};
-                                        if (unique_triplets.find(triplet) == unique_triplets.end()) {
-                                            unique_triplets.insert(triplet); // Only insert unique triplets
-                                            potential_nbrs.push_back(triplet); // 3 neighbour interaction in 3D
-                                            std::cout << " {" << triplet[0] << ", " << triplet[1] << ", " << triplet[2] << "}, ";
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                points.neighbour_list.insert(points.neighbour_list.end(), potential_nbrs.begin(), potential_nbrs.end());;
-            }
-
-        std::cout<<"idx: "<<idx<<std::endl;
-        break;
-
-        default:
-            std::cout<<"Neighbour list is empty"<<std::endl;
-        break;
+        }
+        std::cout<< " ]" << std::endl;
+        points.neighbour_list.insert(points.neighbour_list.end(), potential_nbrs.begin(), potential_nbrs.end());
     }
+
+    std::cout << "idx: " << idx << std::endl;
+
+    return points.neighbour_list;
+
 }
 
 
