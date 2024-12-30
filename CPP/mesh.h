@@ -11,7 +11,6 @@
 
 inline int number_of_points;
 std::vector<Points> generate_mesh(int PD, int Partition, int degree, double domain_size, int number_of_patches, double Delta, int number_of_right_patches) {
-    std::cout << "Generating mesh..." << std::endl;
 
     //int free_points = Partition;
     //double dx = domain_size / (degree * free_points);
@@ -20,6 +19,7 @@ std::vector<Points> generate_mesh(int PD, int Partition, int degree, double doma
     double volume = 1.0;
     double extended_domain_size = domain_size + (number_of_patches + number_of_right_patches) * Delta ;
     std::cout << "Domain size: " << domain_size << " & Extended Domain size: " << extended_domain_size << std::endl;
+
     int total_points = extended_domain_size * Delta; // patches + points
 
     std::vector<Points> point_list;
@@ -27,7 +27,7 @@ std::vector<Points> generate_mesh(int PD, int Partition, int degree, double doma
     std::cout << "Number of Points:" << number_of_points << std::endl;
     Points point(number_of_points, X, x , volume);
 
-
+    std::cout << "Generating mesh..." << std::endl;
     int index = 0;
 
     switch (PD) {
@@ -54,20 +54,14 @@ std::vector<Points> generate_mesh(int PD, int Partition, int degree, double doma
                     point.Nr = index;
                     point.X = { Delta/2 + j*Delta, Delta/2 + i * Delta , 0};
                     point.x = point.X;
-                    index += 1;
-                    point_list.push_back(point);
-                }
-            }
-            for (auto& i : point_list) {
-                for(int j = 0; j < (total_points*total_points); j++){
-                    if (i.Nr > ((j * total_points) + (number_of_patches - 1)) || (i.Nr < (number_of_patches + number_of_points + (j * total_points)))) {
+                    if (index < ((i * total_points) + (number_of_patches)) || (index > (i * total_points) + (number_of_patches + number_of_points - 1)) ) {
                         point.BC = 0;
-                        //std::cout << " , BC : " << i.BC <<std::endl;
                     }
                     else {
                         point.BC = 1;
-                        //std::cout << " , BC : " << i.BC <<std::endl;
                     }
+                    index += 1;
+                    point_list.push_back(point);
                 }
             }
 
@@ -109,6 +103,8 @@ std::vector<Points> generate_mesh(int PD, int Partition, int degree, double doma
             std::cout << val << " ";
         }
         std::cout << "], Volume: " << i.volume << std::endl;
+
+        std::cout<< "BC: " << i.BC << std::endl;
 
     }
     return point_list;

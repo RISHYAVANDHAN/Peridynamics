@@ -10,10 +10,10 @@ int main()
     std::cout << "Starting Peridynamics Simulation" << std::endl;
 
 
-    int PD = 3; // Problem Definition
+    int PD = 2; // Problem Definition
     int Partition; // partition -> no. of points
-    double domain_size = 5.0;
-    double delta = 2.0; //horizon size
+    double domain_size = 15.0;
+    double delta = 3.0; //horizon size
     double Delta = 1.0; // grid space
     int degree = 1; // 1 - linear, 2 - quadratic i´m still not sure if this is needed as it's not used in peridynamics, but in FEM its used, linear , quadratic
     int number_of_patches = floor(delta / Delta); // for now its 3, but not always check it once as well std::round(static_cast<double>(delta) / Delta); // to the left
