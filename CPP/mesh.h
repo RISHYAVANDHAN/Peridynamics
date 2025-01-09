@@ -40,9 +40,11 @@ std::vector<Points> generate_mesh(int PD, int Partition, int degree, double doma
                 point_list.push_back(point);
                 if ((index < (number_of_patches)) || (index > (number_of_patches + number_of_points - 1))) {
                     point.BC = 0;
+                    point.Flag = "Patch";
                 }
                 else {
                     point.BC = 1;
+                    point.Flag = "Point";
                 }
             }
 
@@ -56,9 +58,11 @@ std::vector<Points> generate_mesh(int PD, int Partition, int degree, double doma
                     point.x = point.X;
                     if (index < ((i * total_points) + (number_of_patches)) || (index > (i * total_points) + (number_of_patches + number_of_points - 1)) ) {
                         point.BC = 0;
+                        point.Flag = "Patch";
                     }
                     else {
                         point.BC = 1;
+                        point.Flag = "Point";
                     }
                     index += 1;
                     point_list.push_back(point);
@@ -82,13 +86,12 @@ std::vector<Points> generate_mesh(int PD, int Partition, int degree, double doma
         break;
 
         default:
-
+            std::cerr << "Invalid PD value. Mesh generation aborted." << std::endl;
         break;
 
     }
 
     // Debugging
-
     for (auto & i : point_list) {
         std::cout << "Nr: " << i.Nr << ", X: [";
 
@@ -103,9 +106,7 @@ std::vector<Points> generate_mesh(int PD, int Partition, int degree, double doma
             std::cout << val << " ";
         }
         std::cout << "], Volume: " << i.volume << std::endl;
-
-        std::cout<< "BC: " << i.BC << std::endl;
-
+        std::cout<< "BC: " << i.BC << " Flag: " << i.Flag << std::endl;
     }
     return point_list;
 }

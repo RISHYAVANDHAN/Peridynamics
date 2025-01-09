@@ -8,4 +8,5 @@ add_executable(CPP main.cpp
         Points.h
         mesh.h
         Neighbour.h
+        solver.h
 )
