@@ -97,14 +97,10 @@ std::vector<Points> generate_mesh(int PD, int Partition, int degree, double doma
     // Debugging
     for (auto & i : point_list) {
         std::cout << "Nr: " << i.Nr << ", X: [";
-
-        // Print X vector
         for (const auto& val : i.X) {
             std::cout << val << " ";
         }
         std::cout << "], x: [";
-
-        // Print x vector
         for (const auto& val : i.x) {
             std::cout << val << " ";
         }
@@ -127,32 +123,24 @@ void write_vtk(const std::vector<Points>& point_list, const std::string& filenam
     vtk_file << "Generated Mesh Data" << std::endl;
     vtk_file << "ASCII" << std::endl;
     vtk_file << "DATASET POLYDATA" << std::endl;
-
-    // Write points
     vtk_file << "POINTS " << point_list.size() << " float" << std::endl;
     for (const auto& point : point_list) {
         vtk_file << std::fixed << std::setprecision(6);
         vtk_file << point.X[0] << " " << point.X[1] << " " << point.X[2] << std::endl;
     }
-
-    // Write point data (boundary condition and color)
     vtk_file << "POINT_DATA " << point_list.size() << std::endl;
-
-    // Boundary Condition (BC) data
     vtk_file << "SCALARS BC int 1" << std::endl;
     vtk_file << "LOOKUP_TABLE default" << std::endl;
     for (const auto& point : point_list) {
         vtk_file << point.BC << std::endl;
     }
-
-    // Color data for points (Primary vs Patch)
-    vtk_file << "SCALARS Color float 1" << std::endl; // Use float for smooth color mapping
+    vtk_file << "SCALARS Color float 1" << std::endl; 
     vtk_file << "LOOKUP_TABLE default" << std::endl;
     for (const auto& point : point_list) {
         if (point.Flag != "Patch") {
-            vtk_file << "1.0\n";  // Primary points (colored)
+            vtk_file << "1.0\n";  // Points (colored)
         } else {
-            vtk_file << "0.0\n";  // Patch points (gray)
+            vtk_file << "0.0\n";  // Patches (gray)
         }
     }
 
@@ -161,4 +149,5 @@ void write_vtk(const std::vector<Points>& point_list, const std::string& filenam
 }
 
 
-#endif //MESH_H
+#endif 
+//MESH_H
