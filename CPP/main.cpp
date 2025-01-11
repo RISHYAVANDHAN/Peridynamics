@@ -11,7 +11,7 @@ int main()
     std::cout << "Starting Peridynamics Simulation" << std::endl;
 
 
-    int PD = 1; // Problem Definition
+    int PD = 2; // Problem Definition
     int Partition; // partition -> no. of points
     double domain_size = 10.0;
     double delta = 3.0; //horizon size
@@ -38,6 +38,7 @@ int main()
     Points point;
 
     std::vector<Points> point_list = generate_mesh(PD, Partition, degree, domain_size, number_of_patches, Delta, number_of_right_patches);
+    write_vtk(point_list, "C:/Users/srini/Downloads/FAU/Semwise Course/Programming Project/Peridynamics/coloured_mesh.vtk");
     generate_neighbour_list(PD, point_list, number_of_patches, number_of_right_patches, delta);
     cal_pw_residual_tangent(point_list, NN, C1);
     std::cout << std::endl;
