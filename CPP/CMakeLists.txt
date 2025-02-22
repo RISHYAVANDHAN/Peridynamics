@@ -9,4 +9,5 @@ add_executable(CPP main.cpp
         Neighbour.h
         solver.h
         compute.h
+        Debug.h
 )
