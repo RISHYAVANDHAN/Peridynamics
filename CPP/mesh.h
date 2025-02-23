@@ -17,9 +17,7 @@ std::vector<Points> generate_mesh(int PD, int Partition, int degree, double doma
 
     //int free_points = Partition;
     //double dx = domain_size / (degree * free_points);
-    std::vector<double> X (3, 0.0) ;
-    std::vector<double> x (3, 0.0);
-    double volume = 1.0;
+
     double extended_domain_size = domain_size + (number_of_patches + number_of_right_patches) * Delta ;
     std::cout << "Domain size: " << domain_size << " & Extended Domain size: " << extended_domain_size << std::endl;
 
@@ -28,9 +26,9 @@ std::vector<Points> generate_mesh(int PD, int Partition, int degree, double doma
     std::vector<Points> point_list;
     number_of_points = total_points - (number_of_right_patches + number_of_patches);
     std::cout << "Number of Points:" << number_of_points << std::endl;
-    Points point(number_of_points, X, x , volume);
+    Points point;
 
-    std::cout << "Generating mesh..." << std::endl;
+    //std::cout << "Generating mesh..." << std::endl;
     int index = 0;
 
     switch (PD) {
@@ -94,19 +92,6 @@ std::vector<Points> generate_mesh(int PD, int Partition, int degree, double doma
 
     }
 
-    // Debugging
-    for (auto & i : point_list) {
-        std::cout << "Nr: " << i.Nr << ", X: [";
-        for (const auto& val : i.X) {
-            std::cout << val << " ";
-        }
-        std::cout << "], x: [";
-        for (const auto& val : i.x) {
-            std::cout << val << " ";
-        }
-        std::cout << "], Volume: " << i.volume << std::endl;
-        std::cout<< "BC: " << i.BC << " Flag: " << i.Flag << std::endl;
-    }
     return point_list;
 }
 

@@ -4,9 +4,10 @@
 #include "mesh.h"
 #include "Neighbour.h"
 #include "solver.h"
+#include "Debug.h"
 
 
-int main()
+int main(int argc, char *argv[])
 {
     std::cout << "Starting Peridynamics Simulation" << std::endl;
 
@@ -14,7 +15,7 @@ int main()
     int PD = 2; // Problem Definition
     int Partition; // partition -> no. of points
     double domain_size = 10.0;
-    double delta = 3.0; //horizon size
+    double delta = 2.0; //horizon size
     double Delta = 1.0; // grid space
     int degree = 1; // 1 - linear, 2 - quadratic i´m still not sure if this is needed as it's not used in peridynamics, but in FEM its used, linear , quadratic
     int number_of_patches = floor(delta / Delta); // for now its 3, but not always check it once as well std::round(static_cast<double>(delta) / Delta); // to the left
@@ -39,8 +40,9 @@ int main()
 
     std::vector<Points> point_list = generate_mesh(PD, Partition, degree, domain_size, number_of_patches, Delta, number_of_right_patches);
     write_vtk(point_list, "C:/Users/srini/Downloads/FAU/Semwise Course/Programming Project/Peridynamics/coloured_mesh.vtk");
-    generate_neighbour_list(PD, point_list, number_of_patches, number_of_right_patches, delta);
-    cal_pw_residual_tangent(point_list, NN, C1);
+    generate_neighbour_list(PD, point_list, delta);
+    calculate_rk(PD,point_list, NN, C1, delta);
+    debug_it(PD, point_list);
     std::cout << std::endl;
     return 0;
 }

@@ -1,8 +1,12 @@
 cmake_minimum_required(VERSION 3.29)
 project(CPP)
 
-set(CMAKE_CXX_STANDARD 26)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+find_package(Eigen3 CONFIG REQUIRED)
+
+# Define the executable before linking libraries
 add_executable(CPP main.cpp
         Points.h
         mesh.h
@@ -11,3 +15,5 @@ add_executable(CPP main.cpp
         compute.h
         Debug.h
 )
+
+target_link_libraries(CPP PRIVATE Eigen3::Eigen)
