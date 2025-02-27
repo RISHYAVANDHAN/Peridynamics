@@ -128,30 +128,6 @@ CPP/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\CPP.dir\build.make CMakeFiles/CPP.dir/build
 .PHONY : CPP/fast
 
-Points.obj: Points.cpp.obj
-.PHONY : Points.obj
-
-# target to build an object file
-Points.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\CPP.dir\build.make CMakeFiles/CPP.dir/Points.cpp.obj
-.PHONY : Points.cpp.obj
-
-Points.i: Points.cpp.i
-.PHONY : Points.i
-
-# target to preprocess a source file
-Points.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\CPP.dir\build.make CMakeFiles/CPP.dir/Points.cpp.i
-.PHONY : Points.cpp.i
-
-Points.s: Points.cpp.s
-.PHONY : Points.s
-
-# target to generate assembly for a file
-Points.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\CPP.dir\build.make CMakeFiles/CPP.dir/Points.cpp.s
-.PHONY : Points.cpp.s
-
 main.obj: main.cpp.obj
 .PHONY : main.obj
 
@@ -185,9 +161,6 @@ help:
 	@echo ... edit_cache
 	@echo ... rebuild_cache
 	@echo ... CPP
-	@echo ... Points.obj
-	@echo ... Points.i
-	@echo ... Points.s
 	@echo ... main.obj
 	@echo ... main.i
 	@echo ... main.s

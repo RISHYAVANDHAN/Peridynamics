@@ -14,6 +14,7 @@ add_executable(CPP main.cpp
         solver.h
         compute.h
         Debug.h
+        Assemble.h
 )
 
 target_link_libraries(CPP PRIVATE Eigen3::Eigen)

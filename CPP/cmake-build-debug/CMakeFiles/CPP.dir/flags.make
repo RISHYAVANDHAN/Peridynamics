@@ -4,7 +4,7 @@
 # compile CXX with C:/Program Files/JetBrains/CLion 2024.2.2/bin/mingw/bin/g++.exe
 CXX_DEFINES = 
 
-CXX_INCLUDES = 
+CXX_INCLUDES = @CMakeFiles/CPP.dir/includes_CXX.rsp
 
-CXX_FLAGS = -g -std=gnu++23 -fdiagnostics-color=always
+CXX_FLAGS = -g -std=gnu++20 -fdiagnostics-color=always
 

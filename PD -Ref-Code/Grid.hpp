@@ -150,7 +150,7 @@ struct Grid
     void writeVTK(int id)
     {
         // Vtk output
-        // std::filesystem::create_directory("vtk");
+        std::filesystem::create_directory("vtk");
         std::ofstream vtkFile("vtk/paraview_" + std::to_string(id) + ".vtk");
 
         vtkFile << "# vtk DataFile Version 3.0" << std::endl;

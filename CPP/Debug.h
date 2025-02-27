@@ -14,7 +14,9 @@ class Points;
 inline void debug_it(int PD, std::vector<Points>& point_list)
 {
     // Mesh Debugging
-    for (const auto& i : point_list) {  // Changed to const reference for better performance
+    for (const auto& i : point_list)
+    {
+        // Changed to const reference for better performance
         std::cout << "Nr: " << i.Nr << ", X: [";
         for (const auto& val : i.X) {
             std::cout << val << " ";
@@ -28,17 +30,23 @@ inline void debug_it(int PD, std::vector<Points>& point_list)
 
         std::cout << "Neighbours of " << i.Nr << " are: [";  // Removed extra space
 
-        switch(PD) {  // Using switch instead of multiple if statements
-        case 1:
+        if (PD == 1) {
             for (const auto& n : i.neighbour_list_1N) {
                 std::cout << "{";
                 for (const int val : n) std::cout << val << " ";
                 std::cout << "} ";
             }
             std::cout << "\nNumber of neighbours for point " << i.Nr << ": " << i.n1;
-            break;
+        }
+        else if (PD == 2) {
+            // Display 1-neighbor interactions
+            for (const auto& n : i.neighbour_list_1N) {
+                std::cout << "{";
+                for (const int val : n) std::cout << val << " ";
+                std::cout << "} ";
+            }
 
-        case 2:
+            // Display 2-neighbor interactions
             std::cout << " {\n";  // Consistent formatting
             for (const auto& n : i.neighbour_list_2N) {
                 std::cout << "{ ";
@@ -46,22 +54,37 @@ inline void debug_it(int PD, std::vector<Points>& point_list)
                 std::cout << "} ";
             }
             std::cout << "}\n";
-            std::cout << "Number of neighbours for point " << i.Nr << ": " << i.n2;
-            break;
+            std::cout << "Number of 1-neighbours: " << i.n1 << ", Number of 2-neighbours: " << i.n2;
+        }
+        else if (PD == 3) {
+            // Display 1-neighbor interactions
+            for (const auto& n : i.neighbour_list_1N) {
+                std::cout << "{";
+                for (const int val : n) std::cout << val << " ";
+                std::cout << "} ";
+            }
 
-        case 3:
-            std::cout << "{\n";
+            // Display 2-neighbor interactions
+            std::cout << " {\n";
+            for (const auto& n : i.neighbour_list_2N) {
+                std::cout << "{ ";
+                for (const int val : n) std::cout << val << ", ";
+                std::cout << "} ";
+            }
+
+            // Display 3-neighbor interactions
+            std::cout << "}\n{\n";
             for (const auto& n : i.neighbour_list_3N) {
                 std::cout << "{";
                 for (const int val : n) std::cout << val << ", ";
                 std::cout << "} ";
             }
             std::cout << "}\n";
-            std::cout << "Number of neighbours for point " << i.Nr << ": " << i.n3;
-            break;
+            std::cout << "Number of 1-neighbours: " << i.n1 << ", Number of 2-neighbours: " << i.n2
+                      << ", Number of 3-neighbours: " << i.n3;
         }
         std::cout << "]\n";  // Consistent newline usage
-        std::cout <<std::endl;
+        std::cout << std::endl;
     }
 }
 

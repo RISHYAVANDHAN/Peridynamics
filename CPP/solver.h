@@ -19,7 +19,7 @@
 #include "Neighbour.h"
 #include "Points.h"
 
-inline auto psi(double C1, double L, double l )
+inline auto compute_psi(double C1, double L, double l )
 //at the moment it´s without a return type, once I figure it out i´ll add it
 {
     double s1 = l / L;
@@ -104,7 +104,7 @@ inline Eigen::Matrix3d compute_Kab_3(const Eigen::Vector3d& xi_1, const Eigen::V
 inline void calculate_r(int PD, std::vector<Points>& point_list, double NN, double C1, double delta )
 {
     Points points;
-    double psi, residual = 0;
+    double psi = 0 , residual = 0;
     double Vh = (4.0 / 3.0) * std::numbers::pi * (delta * delta * delta) ;
     double V_eff;
     std::vector<double> Ra_1, Ra_2, Ra_3;
@@ -123,8 +123,8 @@ inline void calculate_r(int PD, std::vector<Points>& point_list, double NN, doub
                 double L = Xi_1.norm();
                 double l = xi_1.norm();
 
-                psi = psi(C1, L, l);
-                V_eff = Vh / point_list[i].n1;
+                psi = psi + compute_psi(C1, L, l);
+                V_eff = Vh / (point_list[i].n1);
 
                 Eigen::VectorXd R = xi_1 * C1 * V_eff * ((1/L) - (1/l));
                 Ra_1.insert(Ra_1.end(), R.begin(), R.end());
@@ -155,8 +155,8 @@ inline void calculate_r(int PD, std::vector<Points>& point_list, double NN, doub
                 double A = Xi.norm();
                 double a = xi.norm();
 
-                psi = psi(C1, A, a); //
-                V_eff = (Vh * Vh) / point_list[i].n2;
+                psi = psi + compute_psi(C1, A, a); //
+                V_eff = (Vh * Vh) / (point_list[i].n1 + point_list[i].n2);
 
                 Eigen::Vector3d calc = (xi_2.dot(xi_2) * xi_1) - (xi_1.dot(xi_2) * xi_2);
 
@@ -194,8 +194,8 @@ inline void calculate_r(int PD, std::vector<Points>& point_list, double NN, doub
                 double V = Xi;
                 double v = xi;
 
-                psi = psi(C1, V, v);  // Note: psi3 instead of psi1
-                V_eff = (Vh * Vh * Vh) / point_list[i].n3;
+                psi =psi + compute_psi(C1, V, v);  // Note: psi3 instead of psi1
+                V_eff = (Vh * Vh * Vh) / (point_list[i].n1 + point_list[i].n2 + point_list[i].n3);
 
                 double calc = xi_2.dot(xi_1.cross(xi_2));
                 Eigen::Vector3d calc1 = xi_2.cross(xi_3);
