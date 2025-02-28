@@ -12,10 +12,10 @@ add_executable(CPP main.cpp
         mesh.h
         Neighbour.h
         solver.h
-        compute.h
         Debug.h
         Assemble.h
         VTKExport.h
+        update.h
 )
 
 target_link_libraries(CPP PRIVATE Eigen3::Eigen)

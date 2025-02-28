@@ -13,8 +13,6 @@
 #include <string>
 #include <Eigen/Dense>
 
-inline int number_of_points;
-
 // Function to compute the deformation gradient (FF) based on the deformation flag
 Eigen::MatrixXd Compute_FF(int PD, double d, const std::string& DEFflag) {
     Eigen::MatrixXd I = Eigen::MatrixXd::Identity(PD, PD); // Identity matrix
@@ -34,13 +32,12 @@ Eigen::MatrixXd Compute_FF(int PD, double d, const std::string& DEFflag) {
 }
 
 // Function to assign global degrees of freedom (DOFs) to points
-void AssignDOF(std::vector<Points>& point_list, int PD) {
-    int DOFs = 0;
+void AssignDOF(std::vector<Points>& point_list, int PD, int DOFs) {
     for (size_t i = 0; i < point_list.size(); i++) {
         // Loop through each dimension
-        for (int p = 0; p < PD; ++p) {
+        for (int p = 1; p <= PD; ++p) {
             // Check if the boundary condition flag is active
-            if (point_list[i].BC == 1) { // Assuming BC is an integer flag
+            if (point_list[i].BC(p) == 1) { // Assuming BC is an integer flag
                 // Increment the DOFs counter and assign it to the current DOF
                 DOFs++;
                 point_list[i].DOF[p] = DOFs;
@@ -50,7 +47,7 @@ void AssignDOF(std::vector<Points>& point_list, int PD) {
 }
 
 // Function to generate a mesh based on input parameters
-std::vector<Points> generate_mesh(int PD, double d, double domain_size, int number_of_patches, double Delta, int number_of_right_patches, const std::string& DEFflag) {
+std::vector<Points> generate_mesh(int PD, double d, double domain_size, int number_of_points, int number_of_patches, double Delta, int number_of_right_patches, const std::string& DEFflag, const int DOFs) {
     // Calculate the extended domain size
     double extended_domain_size = domain_size + (number_of_patches + number_of_right_patches) * Delta;
     std::cout << "Domain size: " << domain_size << " & Extended Domain size: " << extended_domain_size << std::endl;
@@ -79,14 +76,15 @@ std::vector<Points> generate_mesh(int PD, double d, double domain_size, int numb
 
                 // Determine if the point is a patch or a point
                 if ((index < number_of_patches) || (index > number_of_patches + number_of_points - 1)) {
-                    point.BC = 0;
+                    point.BC = Eigen::Vector3d::Zero();
                     point.Flag = "Patch";
                 } else {
-                    point.BC = 1;
+                    point.BC = {1, 0, 0};
                     point.Flag = "Point";
                     point.BCval = FF * point.X - point.X;
                 }
                 point_list.push_back(point);
+                AssignDOF(point_list, PD, DOFs);
             }
             break;
 
@@ -101,15 +99,16 @@ std::vector<Points> generate_mesh(int PD, double d, double domain_size, int numb
 
                     // Determine if the point is a patch or a point
                     if (j < number_of_patches || j >= number_of_patches + number_of_points) {
-                        point.BC = 0;
+                        point.BC = Eigen::Vector3d::Zero();
                         point.Flag = "Patch";
                     } else {
-                        point.BC = 1;
+                        point.BC = {1, 1, 0};
                         point.Flag = "Point";
                         point.BCval = FF * point.X - point.X;
                     }
                     index += 1;
                     point_list.push_back(point);
+                    AssignDOF(point_list, PD, DOFs);
                 }
             }
             break;
@@ -125,6 +124,7 @@ std::vector<Points> generate_mesh(int PD, double d, double domain_size, int numb
                         point.x = point.X;
                         index += 1;
                         point_list.push_back(point);
+                        AssignDOF(point_list, PD, DOFs);
                     }
                 }
             }
@@ -134,8 +134,6 @@ std::vector<Points> generate_mesh(int PD, double d, double domain_size, int numb
             std::cerr << "Invalid PD value. Mesh generation aborted." << std::endl;
             break;
     }
-
-    AssignDOF(point_list, PD);
 
     return point_list;
 }
