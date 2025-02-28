@@ -15,6 +15,7 @@ add_executable(CPP main.cpp
         compute.h
         Debug.h
         Assemble.h
+        VTKExport.h
 )
 
 target_link_libraries(CPP PRIVATE Eigen3::Eigen)

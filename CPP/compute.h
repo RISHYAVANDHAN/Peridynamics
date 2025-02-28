@@ -13,17 +13,11 @@
 #include "Points.h"
 #include "mesh.h"
 #include "Neighbour.h"
+#include "solver.h"
+#include "Assemble.h"
 
-double Norm2(std::array<double, 2> &p)
-{
-    return std::sqrt(p[0] * p[0] + p[1] * p[1]);
-}
-double Norm2(double x, double y)
-{
-    return std::sqrt(x * x + y * y);
-}
+/// use this space for assembly.
 
-// calculate tangent
 
 
 #endif //COMPUTE_H

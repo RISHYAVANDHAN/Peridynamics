@@ -11,127 +11,135 @@
 #include <fstream>
 #include <iomanip>
 #include <string>
+#include <Eigen/Dense>
 
 inline int number_of_points;
-std::vector<Points> generate_mesh(int PD, int Partition, int degree, double domain_size, int number_of_patches, double Delta, int number_of_right_patches) {
 
-    //int free_points = Partition;
-    //double dx = domain_size / (degree * free_points);
+// Function to compute the deformation gradient (FF) based on the deformation flag
+Eigen::MatrixXd Compute_FF(int PD, double d, const std::string& DEFflag) {
+    Eigen::MatrixXd I = Eigen::MatrixXd::Identity(PD, PD); // Identity matrix
+    Eigen::MatrixXd FF = Eigen::MatrixXd::Zero(PD, PD); // Initialize FF as zero matrix
 
-    double extended_domain_size = domain_size + (number_of_patches + number_of_right_patches) * Delta ;
+    if (DEFflag == "EXT") {
+        FF = I;
+        FF(0, 0) = 1 + d; // Set (0, 0) entry as 1 + d
+    } else if (DEFflag == "EXP") {
+        FF = (1 + d) * I; // Scale identity matrix by (1 + d)
+    } else if (DEFflag == "SHR") {
+        FF = I;
+        FF(1, 0) = d; // Set (1, 0) entry as d
+    }
+
+    return FF;
+}
+
+// Function to assign global degrees of freedom (DOFs) to points
+void AssignDOF(std::vector<Points>& point_list, int PD) {
+    int DOFs = 0;
+    for (size_t i = 0; i < point_list.size(); i++) {
+        // Loop through each dimension
+        for (int p = 0; p < PD; ++p) {
+            // Check if the boundary condition flag is active
+            if (point_list[i].BC == 1) { // Assuming BC is an integer flag
+                // Increment the DOFs counter and assign it to the current DOF
+                DOFs++;
+                point_list[i].DOF[p] = DOFs;
+            }
+        }
+    }
+}
+
+// Function to generate a mesh based on input parameters
+std::vector<Points> generate_mesh(int PD, double d, double domain_size, int number_of_patches, double Delta, int number_of_right_patches, const std::string& DEFflag) {
+    // Calculate the extended domain size
+    double extended_domain_size = domain_size + (number_of_patches + number_of_right_patches) * Delta;
     std::cout << "Domain size: " << domain_size << " & Extended Domain size: " << extended_domain_size << std::endl;
 
-    int total_points = extended_domain_size * Delta; // patches + points
+    // Calculate the total number of points
+    int total_points = (number_of_patches + number_of_right_patches + number_of_patches);
+    int number_of_points = total_points - (number_of_right_patches + number_of_patches);
+    std::cout << "Number of Points: " << number_of_points << std::endl;
 
+    // Compute the deformation gradient (FF)
+    Eigen::MatrixXd FF = Compute_FF(PD, d, DEFflag);
+
+    // Initialize the point list
     std::vector<Points> point_list;
-    number_of_points = total_points - (number_of_right_patches + number_of_patches);
-    std::cout << "Number of Points:" << number_of_points << std::endl;
-    Points point;
-
-    //std::cout << "Generating mesh..." << std::endl;
     int index = 0;
 
+    // Generate the mesh based on the number of dimensions (PD)
     switch (PD) {
-        case 1:
+        case 1: // 1D mesh
             for (int i = 0; i < total_points; i++) {
+                Points point;
                 point.Nr = index;
-                point.X = { Delta/2 + i*Delta,0 , 0};
+                point.X = Eigen::Vector3d(Delta / 2 + i * Delta, 0, 0);
                 point.x = point.X;
                 index += 1;
-                point_list.push_back(point);
-                if ((index < (number_of_patches)) || (index > (number_of_patches + number_of_points - 1))) {
+
+                // Determine if the point is a patch or a point
+                if ((index < number_of_patches) || (index > number_of_patches + number_of_points - 1)) {
                     point.BC = 0;
                     point.Flag = "Patch";
-                }
-                else {
+                } else {
                     point.BC = 1;
                     point.Flag = "Point";
+                    point.BCval = FF * point.X - point.X;
                 }
+                point_list.push_back(point);
             }
+            break;
 
-        break;
-        case 2:
-            std::cout << "2d implementation trial" << std::endl;
+        case 2: // 2D mesh
+            std::cout << "2D implementation trial" << std::endl;
             for (int i = 0; i < number_of_points; i++) {
                 for (int j = 0; j < total_points; j++) {
+                    Points point;
                     point.Nr = index;
-                    point.X = { Delta/2 + j*Delta, Delta/2 + i * Delta , 0};
+                    point.X = Eigen::Vector3d(Delta / 2 + j * Delta, Delta / 2 + i * Delta, 0);
                     point.x = point.X;
-                    if (index < ((i * total_points) + (number_of_patches)) || (index > (i * total_points) + (number_of_patches + number_of_points - 1)) ) {
+
+                    // Determine if the point is a patch or a point
+                    if (j < number_of_patches || j >= number_of_patches + number_of_points) {
                         point.BC = 0;
                         point.Flag = "Patch";
-                    }
-                    else {
+                    } else {
                         point.BC = 1;
                         point.Flag = "Point";
+                        point.BCval = FF * point.X - point.X;
                     }
                     index += 1;
                     point_list.push_back(point);
                 }
             }
+            break;
 
-        break;
-        case 3:
-            std::cout << "3d implementation trial" << std::endl;
+        case 3: // 3D mesh
+            std::cout << "3D implementation trial" << std::endl;
             for (int i = 0; i < number_of_points; i++) {
                 for (int j = 0; j < number_of_points; j++) {
                     for (int k = 0; k < total_points; k++) {
+                        Points point;
                         point.Nr = index;
-                        point.X = { Delta/2 + k * Delta, Delta/2 + j * Delta , Delta/2 + i * Delta};
+                        point.X = Eigen::Vector3d(Delta / 2 + k * Delta, Delta / 2 + j * Delta, Delta / 2 + i * Delta);
                         point.x = point.X;
                         index += 1;
                         point_list.push_back(point);
                     }
                 }
             }
-        break;
+            break;
 
         default:
             std::cerr << "Invalid PD value. Mesh generation aborted." << std::endl;
-        break;
-
+            break;
     }
+
+    AssignDOF(point_list, PD);
 
     return point_list;
 }
 
-void write_vtk(const std::vector<Points>& point_list, const std::string& filename) {
-    std::ofstream vtk_file;
-    vtk_file.open(filename);
-
-    if (!vtk_file.is_open()) {
-        std::cerr << "Failed to open VTK file for writing: " << filename << std::endl;
-        return;
-    }
-
-    vtk_file << "# vtk DataFile Version 4.2" << std::endl;
-    vtk_file << "Generated Mesh Data" << std::endl;
-    vtk_file << "ASCII" << std::endl;
-    vtk_file << "DATASET POLYDATA" << std::endl;
-    vtk_file << "POINTS " << point_list.size() << " float" << std::endl;
-    for (const auto& point : point_list) {
-        vtk_file << std::fixed << std::setprecision(6);
-        vtk_file << point.X[0] << " " << point.X[1] << " " << point.X[2] << std::endl;
-    }
-    vtk_file << "POINT_DATA " << point_list.size() << std::endl;
-    vtk_file << "SCALARS BC int 1" << std::endl;
-    vtk_file << "LOOKUP_TABLE default" << std::endl;
-    for (const auto& point : point_list) {
-        vtk_file << point.BC << std::endl;
-    }
-    vtk_file << "SCALARS Color float 1" << std::endl;
-    vtk_file << "LOOKUP_TABLE default" << std::endl;
-    for (const auto& point : point_list) {
-        if (point.Flag != "Patch") {
-            vtk_file << "1.0\n";  // Points (colored)
-        } else {
-            vtk_file << "0.0\n";  // Patches (gray)
-        }
-    }
-
-    vtk_file.close();
-    std::cout << "VTK file written to " << filename << std::endl;
-}
 
 
 #endif
