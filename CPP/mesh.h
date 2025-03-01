@@ -13,10 +13,9 @@
 #include <string>
 #include <Eigen/Dense>
 
-// Function to compute the deformation gradient (FF) based on the deformation flag
-Eigen::MatrixXd Compute_FF(int PD, double d, const std::string& DEFflag) {
-    Eigen::MatrixXd I = Eigen::MatrixXd::Identity(PD, PD); // Identity matrix
-    Eigen::MatrixXd FF = Eigen::MatrixXd::Zero(PD, PD); // Initialize FF as zero matrix
+Eigen::Matrix3d Compute_FF(int PD, double d, const std::string& DEFflag) {
+    Eigen::Matrix3d I = Eigen::Matrix3d::Identity(); // Identity matrix
+    Eigen::Matrix3d FF = Eigen::Matrix3d::Zero();    // Initialize FF as zero matrix
 
     if (DEFflag == "EXT") {
         FF = I;
@@ -31,40 +30,29 @@ Eigen::MatrixXd Compute_FF(int PD, double d, const std::string& DEFflag) {
     return FF;
 }
 
-// Function to assign global degrees of freedom (DOFs) to points
-void AssignDOF(std::vector<Points>& point_list, int PD, int DOFs) {
+void AssignDOF(std::vector<Points>& point_list, int PD, int& DOFs) {
     for (size_t i = 0; i < point_list.size(); i++) {
-        // Loop through each dimension
-        for (int p = 1; p <= PD; ++p) {
-            // Check if the boundary condition flag is active
-            if (point_list[i].BC(p) == 1) { // Assuming BC is an integer flag
-                // Increment the DOFs counter and assign it to the current DOF
+        for (int p = 0; p < PD; ++p) {
+            if (point_list[i].BC(p) == 1) {
                 DOFs++;
-                point_list[i].DOF[p] = DOFs;
+                point_list[i].DOF(p) = DOFs;
             }
         }
     }
 }
 
-// Function to generate a mesh based on input parameters
-std::vector<Points> generate_mesh(int PD, double d, double domain_size, int number_of_points, int number_of_patches, double Delta, int number_of_right_patches, const std::string& DEFflag, const int DOFs) {
-    // Calculate the extended domain size
+std::vector<Points> generate_mesh(int PD, double d, double domain_size, int number_of_points, int number_of_patches, double Delta, int number_of_right_patches, const std::string& DEFflag, int& DOFs) {
     double extended_domain_size = domain_size + (number_of_patches + number_of_right_patches) * Delta;
     std::cout << "Domain size: " << domain_size << " & Extended Domain size: " << extended_domain_size << std::endl;
 
-    // Calculate the total number of points
-    int total_points = (number_of_patches + number_of_right_patches + number_of_patches);
-    int number_of_points = total_points - (number_of_right_patches + number_of_patches);
+    int total_points = (number_of_patches + number_of_right_patches + number_of_points);
     std::cout << "Number of Points: " << number_of_points << std::endl;
 
-    // Compute the deformation gradient (FF)
-    Eigen::MatrixXd FF = Compute_FF(PD, d, DEFflag);
+    Eigen::Matrix3d FF = Compute_FF(PD, d, DEFflag);
 
-    // Initialize the point list
     std::vector<Points> point_list;
     int index = 0;
 
-    // Generate the mesh based on the number of dimensions (PD)
     switch (PD) {
         case 1: // 1D mesh
             for (int i = 0; i < total_points; i++) {
@@ -74,7 +62,6 @@ std::vector<Points> generate_mesh(int PD, double d, double domain_size, int numb
                 point.x = point.X;
                 index += 1;
 
-                // Determine if the point is a patch or a point
                 if ((index < number_of_patches) || (index > number_of_patches + number_of_points - 1)) {
                     point.BC = Eigen::Vector3d::Zero();
                     point.Flag = "Patch";
@@ -97,7 +84,6 @@ std::vector<Points> generate_mesh(int PD, double d, double domain_size, int numb
                     point.X = Eigen::Vector3d(Delta / 2 + j * Delta, Delta / 2 + i * Delta, 0);
                     point.x = point.X;
 
-                    // Determine if the point is a patch or a point
                     if (j < number_of_patches || j >= number_of_patches + number_of_points) {
                         point.BC = Eigen::Vector3d::Zero();
                         point.Flag = "Patch";
@@ -137,7 +123,6 @@ std::vector<Points> generate_mesh(int PD, double d, double domain_size, int numb
 
     return point_list;
 }
-
 
 
 #endif

@@ -8,7 +8,6 @@
 #include "Points.h"
 #include "mesh.h"
 #include "Neighbour.h"
-#include "compute.h"
 
 void write_vtk(const std::vector<Points>& point_list, const std::string& filename) {
     std::ofstream vtk_file;
@@ -32,15 +31,15 @@ void write_vtk(const std::vector<Points>& point_list, const std::string& filenam
     vtk_file << "SCALARS BC int 1" << std::endl;
     vtk_file << "LOOKUP_TABLE default" << std::endl;
     for (const auto& point : point_list) {
-        vtk_file << point.BC << std::endl;
+        vtk_file << point.BC[0] << " " << point.BC[1] << " " << point.BC[2] << std::endl;
     }
     vtk_file << "SCALARS Color float 1" << std::endl;
     vtk_file << "LOOKUP_TABLE default" << std::endl;
     for (const auto& point : point_list) {
         if (point.Flag != "Patch") {
-            vtk_file << "1.0\n";  // Points (colored)
+            vtk_file << "1.0\n";
         } else {
-            vtk_file << "0.0\n";  // Patches (gray)
+            vtk_file << "0.0\n";
         }
     }
 

@@ -10,36 +10,28 @@
 #include <Eigen/Sparse>
 #include "Points.h"
 
-
-// Assembly function for total energy
 inline double assembleEnergy(const std::vector<Points>& point_list) {
     double Psi = 0.0;
 
     for (const auto& point : point_list) {
-        // Using psi and volume from your Points class
         Psi += point.volume * point.psi;
     }
 
     return Psi;
 }
 
-// Assembly function for residual
 inline Eigen::VectorXd assembleResidual(const std::vector<Points>& point_list, const int DOFs) {
-
     Eigen::VectorXd R = Eigen::VectorXd::Zero(DOFs);
+
     for (size_t i = 0; i < point_list.size(); i++) {
-        // Get residual for this point
+        Eigen::Vector3d R_P = point_list[i].Ra_sum;
 
-        Eigen::VectorXd R_P = point_list[i].Ra_sum;
-
-        // Get dimension from BC vector
-        int PD = point_list[i].BC.size();
-
-        for (int ii = 0; ii < PD; ii++) {
+        for (int ii = 0; ii < 3; ii++) {
             if (point_list[i].BC(ii) == 1) {
                 int dof_idx = static_cast<int>(point_list[i].DOF(ii));
-                if (dof_idx > 0 && dof_idx <= DOFs) {
-                    R(dof_idx-1) += R_P(ii);
+                // Check if dof_idx is zero-indexed (0 to DOFs-1)
+                if (dof_idx >= 0 && dof_idx < DOFs) {
+                    R(dof_idx) += R_P(ii);
                 }
             }
         }
@@ -48,108 +40,69 @@ inline Eigen::VectorXd assembleResidual(const std::vector<Points>& point_list, c
     return R;
 }
 
-// Assembly function for stiffness matrix
-inline Eigen::SparseMatrix<double> assembleStiffness(const std::vector<Points>& point_list, int DOFs) {
-    // Triplets for sparse matrix construction
-    std::vector<Eigen::Triplet<double>> triplets;
-    // Estimate size - adjust as needed
-    triplets.reserve(DOFs * 20);
 
-    // Dimension of the problem
-    int PD = point_list[0].BC.size();
+inline Eigen::SparseMatrix<double> assembleStiffness(const std::vector<Points>& point_list, int DOFs, int PD) {
+    std::vector<Eigen::Triplet<double>> triplets;  // For sparse matrix storage
 
-    for (size_t p = 0; p < point_list.size(); p++) {
-        // Process 1-neighbor interactions
-        for (int pp = 0; pp < PD; pp++) {
-            if (point_list[p].BC(pp) == 1) {
-                int dof_p = static_cast<int>(point_list[p].DOF(pp));
+    // Iterate over each point in the point list
+    for (auto p = 0; p < point_list.size(); ++p) {
+        Eigen::MatrixXd K_P = point_list[p].Kab_sum;  // Total stiffness matrix for point p
+        Eigen::Vector3d BCflg_p = point_list[p].BC;   // Boundary condition flags for point p
+        Eigen::Vector3d DOF_p = point_list[p].DOF;    // DOF for point p
 
-                // Process all neighbors including the point itself
-                std::vector<int> all_neighbors;
-                for (const auto& nbrData : point_list[p].neighbour_list_1N) {
-                    all_neighbors.push_back(nbrData[0]);
-                }
-                all_neighbors.push_back(p); // Add self (as done in MATLAB)
+        // Loop over each dimension (x, y, z) depending on PD (1D, 2D or 3D)
+        for (int pp = 0; pp < PD; ++pp) {
+            if (BCflg_p(pp) == 1) {  // Check if this DOF is active
+                int dof_p = static_cast<int>(DOF_p(pp));  // Global DOF index for point p
 
-                for (const auto& q : all_neighbors) {
-                    for (int qq = 0; qq < PD; qq++) {
-                        if (point_list[q].BC(qq) == 1) {
-                            int dof_q = static_cast<int>(point_list[q].DOF(qq));
+                // Make sure dof_p is valid (zero-indexed)
+                if (dof_p >= 0 && dof_p < DOFs) {
+                    // Copy neighbour list (2D vector) and append `p` to its own list of neighbors
+                    std::vector<std::vector<int>> nbrL = point_list[p].neighbour_list;
+                    nbrL.push_back({p});  // Append the current point to its neighbors
 
-                            // Extract stiffness value
-                            double k_value = 0.0;
-                            if (PD == 2) {
-                                // For 2D
-                                if (pp == 0 && qq == 0) k_value = point_list[p].Kab_1(0, 0);
-                                else if (pp == 0 && qq == 1) k_value = point_list[p].Kab_1(0, 1);
-                                else if (pp == 1 && qq == 0) k_value = point_list[p].Kab_1(1, 0);
-                                else if (pp == 1 && qq == 1) k_value = point_list[p].Kab_1(1, 1);
+                    // Loop over each neighbor (including self)
+                    for (size_t q_idx = 0; q_idx < nbrL.size(); ++q_idx) {
+                        int q = nbrL[q_idx][0];  // Get the neighbor index
+
+                        // Get the boundary condition flags and DOFs for neighbor `q`
+                        Eigen::Vector3d BCflg_q = point_list[q].BC;
+                        Eigen::Vector3d DOF_q = point_list[q].DOF;
+
+                        // Make sure we're not attempting to extract a block larger than the matrix dimensions
+                        if (pp < K_P.rows() && q_idx < K_P.cols()) {
+                            // Extract the stiffness contribution K_PQ from the total stiffness matrix
+                            double K_value = 0.0;
+
+                            // For 1D, simply get the direct value
+                            if (PD == 1) {
+                                K_value = K_P(pp, q_idx);
+
+                                if (BCflg_q(0) == 1) {  // Check if this DOF for neighbor `q` is active
+                                    int dof_q = static_cast<int>(DOF_q(0));  // Global DOF index for neighbor `q`
+
+                                    // Add to the triplet list (for sparse matrix construction)
+                                    if (dof_q >= 0 && dof_q < DOFs) {
+                                        triplets.emplace_back(dof_p, dof_q, K_value);
+                                    }
+                                }
                             }
-                            else if (PD == 3) {
-                                // For 3D
-                                k_value = point_list[p].Kab_1(pp, qq);
-                            }
+                            // For higher dimensions, we need to extract blocks
+                            else {
+                                // Loop over each dimension (x, y, z) for neighbor `q`
+                                for (int qq = 0; qq < PD; ++qq) {
+                                    if (BCflg_q(qq) == 1) {  // Check if this DOF for neighbor `q` is active
+                                        int dof_q = static_cast<int>(DOF_q(qq));  // Global DOF index for neighbor `q`
 
-                            // Add to triplets
-                            if (dof_p > 0 && dof_q > 0) {
-                                triplets.emplace_back(dof_p-1, dof_q-1, k_value);
-                            }
-                        }
-                    }
-                }
+                                        // Safely get the value from K_P
+                                        if (pp < K_P.rows() && q_idx * PD + qq < K_P.cols()) {
+                                            K_value = K_P(pp, q_idx * PD + qq);
 
-                // Process 2-neighbor interactions
-                for (const auto& nbrData : point_list[p].neighbour_list_2N) {
-                    int q1 = nbrData[0];
-                    int q2 = nbrData[1];
-
-                    for (int qq = 0; qq < PD; qq++) {
-                        if (point_list[q1].BC(qq) == 1) {
-                            int dof_q = static_cast<int>(point_list[q1].DOF(qq));
-
-                            // Extract stiffness value for 2-neighbor interaction
-                            double k_value = point_list[p].Kab_2(pp, qq);
-
-                            // Add to triplets
-                            if (dof_p > 0 && dof_q > 0) {
-                                triplets.emplace_back(dof_p-1, dof_q-1, k_value);
-                            }
-                        }
-
-                        if (point_list[q2].BC(qq) == 1) {
-                            int dof_q = static_cast<int>(point_list[q2].DOF(qq));
-
-                            // Extract stiffness value for 2-neighbor interaction
-                            double k_value = point_list[p].Kab_2(pp, qq);
-
-                            // Add to triplets
-                            if (dof_p > 0 && dof_q > 0) {
-                                triplets.emplace_back(dof_p-1, dof_q-1, k_value);
-                            }
-                        }
-                    }
-                }
-
-                // Process 3-neighbor interactions (if PD == 3)
-                if (PD == 3) {
-                    for (const auto& nbrData : point_list[p].neighbour_list_3N) {
-                        int q1 = nbrData[0];
-                        int q2 = nbrData[1];
-                        int q3 = nbrData[2];
-
-                        for (int qq = 0; qq < PD; qq++) {
-                            // Process each neighbor
-                            const std::vector<int> nbrs = {q1, q2, q3};
-                            for (const auto& q : nbrs) {
-                                if (point_list[q].BC(qq) == 1) {
-                                    int dof_q = static_cast<int>(point_list[q].DOF(qq));
-
-                                    // Extract stiffness value for 3-neighbor interaction
-                                    double k_value = point_list[p].Kab_3(pp, qq);
-
-                                    // Add to triplets
-                                    if (dof_p > 0 && dof_q > 0) {
-                                        triplets.emplace_back(dof_p-1, dof_q-1, k_value);
+                                            // Add to the triplet list (for sparse matrix construction)
+                                            if (dof_q >= 0 && dof_q < DOFs) {
+                                                triplets.emplace_back(dof_p, dof_q, K_value);
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -160,11 +113,11 @@ inline Eigen::SparseMatrix<double> assembleStiffness(const std::vector<Points>& 
         }
     }
 
-    // Create sparse matrix from triplets
+    // Construct the sparse matrix using the triplets collected
     Eigen::SparseMatrix<double> K(DOFs, DOFs);
     K.setFromTriplets(triplets.begin(), triplets.end());
-
     return K;
 }
+
 
 #endif // ASSEMBLE_H

@@ -18,32 +18,29 @@
 #include <string>
 #include <fstream>
 #include <chrono>
+#include <numeric>
+#include <memory>
 
-int main(int argc, char *argv[])
-{
+
+int main(int argc, char *argv[]) {
     std::cout << "Starting Peridynamics Simulation" << std::endl;
 
-    // Problem Definition Variables
-    int PD = 2; // Problem Dimension (2D)
-    //int Partition; // Number of partitions for mesh (not used in the provided code)
+    int PD = 1;
     double domain_size = 10.0;
-    double delta = 3.0; // Horizon size
-    double Delta = 1.0; // Grid spacing
-    //int degree = 1; // Degree of approximation (linear or quadratic)
-    int number_of_patches = std::floor(delta / Delta); // Number of left patches (based on horizon size)
-    int number_of_right_patches = 1; // Right patches (user-defined)
-    //int number_of_neighbours = 3; // Number of neighbors for peridynamics
-    double d = 0.5; // Magnitude of deformation
-    double no_of_steps = 1000.0; // Total number of simulation steps
+    double delta = 3.0;
+    double Delta = 1.0;
+    int number_of_patches = std::floor(delta / Delta);
+    int number_of_right_patches = 1;
+    double d = 0.5;
+    double no_of_steps = 1000.0;
     double loadStep = 1.0 / no_of_steps;
-    double deformed_steps = d / no_of_steps; // Step size for deformation
-    double C1 = 0.0; // Material constant (spring constant)
-    double NN = 0.0; // Material power law
-    const std::string& DEF_flag = "EXP"; // "EXT" - Extension; "EXT" - Expansion; "SHR" - Shear
-    //int C_flag = 0; // Material behavior flag (0 - constant, 1 - linear, etc.)
-    const int number_of_points = std::floor(domain_size / Delta); // Number of mesh points
-    double tol = 1e-11; // Tolerance
-    int LF = 0; // LoadFactor
+    double deformed_steps = d / no_of_steps;
+    double C1 = 0.0;
+    double NN = 0.0;
+    const std::string DEF_flag = "EXP";
+    const int number_of_points = std::floor(domain_size / Delta);
+    double tol = 1e-11;
+    int LF = 0;
     int counter = 0;
     int DOFs = 0;
     double normnull = 0.0;
@@ -51,59 +48,88 @@ int main(int argc, char *argv[])
     int min_try = 0;
     int max_try = 20;
 
-    // Debug information about parameters
     std::cout << "PD: " << PD << std::endl;
     std::cout << "Number of left patches: " << number_of_patches << std::endl;
     std::cout << "Number of right patches: " << number_of_right_patches << std::endl;
     std::cout << "Horizon size: " << delta << std::endl;
 
-    // Generate mesh based on problem definition
-    std::vector<Points> point_list = generate_mesh(PD, d, domain_size, number_of_points, number_of_patches, Delta, number_of_right_patches, DEF_flag, DOFs); // Assuming 'EXT' for deformation flag
+    std::vector<Points> point_list = generate_mesh(PD, d, domain_size, number_of_points, number_of_patches, Delta, number_of_right_patches, DEF_flag, DOFs);
     generate_neighbour_list(PD, point_list, delta);
+
+    // Set C1 to a non-zero value to ensure system is well-conditioned
+    C1 = 1.0;  // Use an appropriate material constant for your simulation
+
     calculate_r(PD, point_list, NN, C1, delta);
 
-    while (LF <= (1.0 + 1e-8))
-    {
+    while (LF <= (1.0 + 1e-8)) {
         std::cout << "LF: " << LF << std::endl;
-        point_list = update_prescribed(point_list, LF, delta, PD);
+        point_list = update_prescribed(point_list, LF, PD, delta);
         int error_counter = 1;
         bool isNotAccurate = true;
 
-        while (isNotAccurate)
-        {
+        while (isNotAccurate) {
             Eigen::VectorXd R = assembleResidual(point_list, DOFs);
 
-            if (error_counter == 1)
-            {
+            if (error_counter == 1) {
                 normnull = R.norm();
                 std::cout << "Initial residual norm: " << normnull << " at iteration " << counter << std::endl;
             }
 
-            // Print the residual norm at each iteration
             std::cout << "Residual norm: " << R.norm() << " at iteration " << counter << std::endl;
 
-            // Check stopping conditions
-            if (error_counter > 1)
-            {
+            if (error_counter > 1) {
                 double relative_norm = R.norm() / normnull;
                 double absolute_norm = R.norm();
-                // Stopping conditions:
-                // 1. Relative residual norm is below tolerance
-                // 2. Absolute residual norm is below tolerance
-                // 3. Maximum number of iterations is reached
-                if ((relative_norm < tol || absolute_norm < tol || error_counter > max_try) && error_counter > min_try)
-                {
-                    isNotAccurate = false; // Exit the loop
+                if ((relative_norm < tol || absolute_norm < tol || error_counter > max_try) && error_counter > min_try) {
+                    isNotAccurate = false;
                     break;
                 }
             }
 
-            Eigen::MatrixXd K = assembleStiffness(point_list, DOFs);
-            Eigen::MatrixXd A = Eigen::MatrixXd(K);
-            dx = -K.fullPivLu().solve(R);
-            Eigen::MatrixXd KKtmp = K - K.transpose();
+            // Skip solving if residual is already close to zero
+            if (R.norm() < tol) {
+                std::cout << "Residual already at tolerance, skipping solve step." << std::endl;
+                isNotAccurate = false;
+                break;
+            }
 
-            point_list = update_displaced(point_list, dx, delta, PD);
+            Eigen::SparseMatrix<double> K = assembleStiffness(point_list, DOFs, PD);
+
+            // Check if K is empty or all zeros
+            if (K.nonZeros() == 0) {
+                std::cout << "Warning: Stiffness matrix is empty!" << std::endl;
+                isNotAccurate = false;
+                break;
+            }
+
+            // Use a more robust solver with regularization
+            Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
+            solver.compute(K);
+
+            if (solver.info() != Eigen::Success) {
+                std::cout << "Warning: Factorization failed! Adding regularization..." << std::endl;
+                // Add small regularization to diagonal
+                for (int i = 0; i < K.rows(); ++i) {
+                    K.coeffRef(i, i) += 1e-10;
+                }
+                solver.compute(K);
+
+                if (solver.info() != Eigen::Success) {
+                    std::cout << "Factorization still failed after regularization!" << std::endl;
+                    isNotAccurate = false;
+                    break;
+                }
+            }
+
+            dx = -solver.solve(R);
+
+            if (solver.info() != Eigen::Success) {
+                std::cout << "Solve failed!" << std::endl;
+                isNotAccurate = false;
+                break;
+            }
+
+            point_list = update_displaced(point_list, dx, PD, delta);
 
             error_counter = error_counter + 1;
         }
@@ -115,13 +141,9 @@ int main(int argc, char *argv[])
         LF = LF + loadStep;
         counter = counter + 1;
     }
-    // Write mesh to VTK file
-    write_vtk(point_list, "C:/Users/srini/Downloads/FAU/Semwise Course/Programming Project/Peridynamics/coloured_mesh.vtk");
-    // Debugging mesh
+
+    write_vtk(point_list, "coloured_mesh.vtk");
     debug_it(PD, point_list);
 
     return 0;
 }
-
-// End of file
-
