@@ -1,4 +1,4 @@
-//PERIDYNAMICS SIMULATION
+//PERIDYNAMICS SIMULATION - Point-based Continuum Kinematics approach
 
 #include "Points.h"
 #include "mesh.h"
@@ -9,224 +9,209 @@
 #include "update.h"
 #include "Assemble.h"
 
-
 #include <vector>
 #include <iostream>
 #include <cmath>
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
+#include <Eigen/SparseLU>
 #include <string>
 #include <fstream>
 #include <chrono>
 #include <numeric>
 #include <memory>
-
+#include <iomanip>
 
 int main(int argc, char *argv[]) {
-    std::cout << "Starting Peridynamics Simulation" << std::endl;
+    auto start = std::chrono::high_resolution_clock::now();
+    std::cout << "=== Starting Point-Based Peridynamics Simulation ===" << std::endl;
 
-    int PD = 1;
-    double domain_size = 10.0;
-    double delta = 3.0;
-    double Delta = 1.0;
+    // Simulation parameters
+    int PD = 1;                  // Problem dimension
+    double domain_size = 10.0;   // Size of physical domain
+    double delta = 3.0;          // Horizon (interaction radius)
+    double Delta = 1.0;          // Point spacing
+    double d = 0.5;              // Total deformation magnitude
+
+    // Material parameters
+    double C1 = 1.0;             // Material constant
+
+    // Boundary and patch parameters
     int number_of_patches = std::floor(delta / Delta);
     int number_of_right_patches = 1;
-    double d = 0.5;
-    double no_of_steps = 1000.0;
-    double loadStep = 1.0 / no_of_steps;
-    double deformed_steps = d / no_of_steps;
+    const std::string DEF_flag = "EXP";  // Deformation mode (EXP, EXT, SHR)
 
-    // Ensure loadStep is not too small
-    if (loadStep < 1e-6) {
-        std::cout << "Warning: loadStep is very small (" << loadStep << "). Increasing to 0.01" << std::endl;
-        loadStep = 0.01;
-    }
-    std::cout << "Using loadStep = " << loadStep << std::endl;
+    // Solver parameters
+    const int max_steps = 100;           // Maximum number of load steps
+    const int max_newton_iters = 20;     // Maximum Newton iterations per step
+    const double tol = 1e-8;             // Convergence tolerance
+    int DOFs = 0;                        // Will be calculated during mesh generation
 
-    // Set C1 to a proper non-zero value
-    double C1 = 1.0;
-
-    double NN = 0.0;
-    const std::string DEF_flag = "EXP";
-    const int number_of_points = std::floor(domain_size / Delta);
-    double tol = 1e-8;  // Increased tolerance from 1e-11 to make convergence easier
-    double LF = 0.0;    // Initialize load factor to 0
-    int counter = 0;
-    int DOFs = 0;
-    double normnull = 0.0;
-    Eigen::VectorXd dx;
-    int min_try = 1;    // Ensure at least one iteration
-    int max_try = 20;
-    int completed_steps = 0;
-
-    std::cout << "PD: " << PD << std::endl;
-    std::cout << "Number of left patches: " << number_of_patches << std::endl;
-    std::cout << "Number of right patches: " << number_of_right_patches << std::endl;
-    std::cout << "Horizon size: " << delta << std::endl;
+    std::cout << "=== Configuration ===" << std::endl;
+    std::cout << "Dimension: " << PD << "D" << std::endl;
+    std::cout << "Domain size: " << domain_size << std::endl;
+    std::cout << "Horizon (delta): " << delta << std::endl;
+    std::cout << "Point spacing (Delta): " << Delta << std::endl;
+    std::cout << "Deformation type: " << DEF_flag << std::endl;
     std::cout << "Material constant C1: " << C1 << std::endl;
-    std::cout << "Total number of steps: " << no_of_steps << std::endl;
-    std::cout << "Load step size: " << loadStep << std::endl;
+    std::cout << "Load steps: " << max_steps << std::endl;
+    std::cout << "Tolerance: " << tol << std::endl;
 
-    std::vector<Points> point_list = generate_mesh(PD, d, domain_size, number_of_points, number_of_patches, Delta, number_of_right_patches, DEF_flag, DOFs);
+    // Generate mesh
+    std::cout << "\n=== Generating mesh... ===" << std::endl;
+    const int number_of_points = std::floor(domain_size / Delta);
+    std::vector<Points> point_list = generate_mesh(PD, d, domain_size, number_of_points,
+                                                  number_of_patches, Delta,
+                                                  number_of_right_patches, DEF_flag, DOFs);
+
+    // Generate neighbor lists
+    std::cout << "Generating neighbor lists..." << std::endl;
     generate_neighbour_list(PD, point_list, delta);
-
-    // Initial calculation of internal forces
-    calculate_r(PD, point_list, NN, C1, delta);
-
-    std::cout << "Starting simulation with " << point_list.size() << " points and " << DOFs << " DOFs" << std::endl;
+    std::cout << "Mesh generated with " << point_list.size() << " points and " << DOFs << " DOFs" << std::endl;
 
     // Save initial configuration
     write_vtk(point_list, "initial_mesh.vtk");
-    std::cout << "Wrote initial mesh file" << std::endl;
+    std::cout << "Initial mesh saved to 'initial_mesh.vtk'" << std::endl;
 
-    // Main load stepping loop
-    while (LF <= (1.0 + 1e-8)) {
-        std::cout << "\n====== Load Factor: " << LF << " (Step " << completed_steps << ") ======\n" << std::endl;
+    // Calculate initial internal forces
+    double NN = 0.0;  // Initial value for the nonlinear parameter
+    calculate_r(PD, point_list, NN, C1, delta);
 
-        // Apply boundary conditions for current load step
-        point_list = update_prescribed(point_list, LF, PD, delta);
+    // Main simulation loop - load stepping
+    double load_step = 1.0 / max_steps;
+    double load_factor = 0.0;
+    int step_count = 0;
 
-        int newton_iterations = 0;
-        bool isNotAccurate = true;
+    std::cout << "\n=== Starting Simulation with Load Stepping ===" << std::endl;
 
-        // Force recalculation of residual for each load step
+    while (load_factor < 1.0 && step_count < max_steps) {
+        // Increase load factor
+        load_factor += load_step;
+        if (load_factor > 1.0) load_factor = 1.0; // Ensure we don't exceed 1.0
+
+        step_count++;
+        std::cout << "\n--- Load Step " << step_count << " ---" << std::endl;
+        std::cout << "Load Factor: " << std::fixed << std::setprecision(4) << load_factor << std::endl;
+
+        // Apply boundary conditions for this load step
+        point_list = update_prescribed(point_list, load_factor, PD, delta);
+
+        // Newton-Raphson iterations
+        int newton_iter = 0;
+        bool converged = false;
+        double residual_norm_initial = 0.0;
+
+        // Reset internal forces for this load step
         calculate_r(PD, point_list, NN, C1, delta);
 
-        // Newton-Raphson iteration loop
-        while (isNotAccurate && newton_iterations < max_try) {
-            newton_iterations++;
+        while (!converged && newton_iter < max_newton_iters) {
+            newton_iter++;
 
+            // Assemble residual vector
             Eigen::VectorXd R = assembleResidual(point_list, DOFs);
+            double residual_norm = R.norm();
 
-            // Print the max component of R for debugging
-            double max_r_component = R.cwiseAbs().maxCoeff();
-            std::cout << "Max residual component: " << max_r_component << std::endl;
+            // Store initial residual for relative convergence check
+            if (newton_iter == 1) {
+                residual_norm_initial = residual_norm;
+                std::cout << "Initial residual norm: " << residual_norm_initial << std::endl;
 
-            if (newton_iterations == 1) {
-                normnull = R.norm();
-                std::cout << "Initial residual norm: " << normnull << std::endl;
-
-                // If initial residual is zero, add a small perturbation to prevent skipping
-                if (normnull < tol) {
-                    std::cout << "Warning: Initial residual nearly zero, applying small perturbation." << std::endl;
-                    normnull = tol * 10.0;  // Use a small non-zero value
+                // Handle case of very small initial residual
+                if (residual_norm_initial < tol) {
+                    std::cout << "Initial residual already below tolerance." << std::endl;
+                    converged = true;
+                    break;
                 }
             }
 
-            double residual_norm = R.norm();
-            std::cout << "Residual norm: " << residual_norm << " at iteration " << newton_iterations << std::endl;
+            // Check convergence
+            double relative_residual = residual_norm / residual_norm_initial;
+            std::cout << "Iteration " << newton_iter << ": ||R|| = " << residual_norm
+                      << " (relative: " << relative_residual << ")" << std::endl;
 
-            // Check convergence criteria
-            if (newton_iterations > 1) {
-                double relative_norm = residual_norm / normnull;
-                if ((relative_norm < tol || residual_norm < tol) && newton_iterations >= min_try) {
-                    std::cout << "Converged! Relative norm: " << relative_norm << ", Absolute norm: " << residual_norm << std::endl;
-                    isNotAccurate = false;
-                    break;
-                }
+            if (residual_norm < tol || relative_residual < tol) {
+                std::cout << "Converged in " << newton_iter << " iterations!" << std::endl;
+                converged = true;
+                break;
             }
 
             // Assemble stiffness matrix
             Eigen::SparseMatrix<double> K = assembleStiffness(point_list, DOFs, PD);
 
-            // Check if K is all zeros
             if (K.nonZeros() == 0) {
-                std::cout << "ERROR: Stiffness matrix is empty! Adding regularization..." << std::endl;
-
-                // Create identity matrix for regularization
-                for (int i = 0; i < DOFs; ++i) {
-                    K.coeffRef(i, i) = 1e-5;  // Add small diagonal values
-                }
-            }
-
-            // Add regularization to all diagonal elements
-            for (int i = 0; i < DOFs; ++i) {
-                K.coeffRef(i, i) += 1e-8;  // Small regularization on diagonal
-            }
-
-            // Use a more robust solver approach
-            Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
-            solver.compute(K);
-
-            if (solver.info() != Eigen::Success) {
-                std::cout << "Factorization failed! Adding stronger regularization..." << std::endl;
-
-                // Try again with stronger regularization
-                for (int i = 0; i < DOFs; ++i) {
-                    K.coeffRef(i, i) += 1e-6;  // Stronger regularization
-                }
-
-                solver.compute(K);
-
-                if (solver.info() != Eigen::Success) {
-                    std::cout << "Factorization still failed after regularization!" << std::endl;
-                    // Try to continue with next load step
-                    isNotAccurate = false;
-                    break;
-                }
-            }
-
-            // Solve the system and update positions
-            dx = -solver.solve(R);
-
-            if (solver.info() != Eigen::Success) {
-                std::cout << "Solve failed!" << std::endl;
-                isNotAccurate = false;
+                std::cerr << "ERROR: Stiffness matrix is empty!" << std::endl;
                 break;
             }
 
-            // Debug: print max displacement
-            double max_dx = dx.cwiseAbs().maxCoeff();
-            std::cout << "Max displacement increment: " << max_dx << std::endl;
+            // Solve linear system without regularization
+            Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
+            solver.analyzePattern(K);
+            solver.factorize(K);
 
-            // If displacement is too small, consider it converged
-            if (max_dx < tol) {
-                std::cout << "Displacement increment below tolerance, considering converged." << std::endl;
-                isNotAccurate = false;
+            if (solver.info() != Eigen::Success) {
+                std::cerr << "ERROR: Factorization failed!" << std::endl;
+
+                // Try to adapt by reducing load step instead of adding regularization
+                load_step /= 2.0;
+                std::cout << "Reducing load step to " << load_step << " and retrying" << std::endl;
+                load_factor -= load_step; // Back up one step
+                step_count--;
+                break;
+            }
+
+            // Compute displacement increment
+            Eigen::VectorXd dx = solver.solve(-R);
+
+            if (solver.info() != Eigen::Success) {
+                std::cerr << "ERROR: Solve failed!" << std::endl;
                 break;
             }
 
             // Update positions
             point_list = update_displaced(point_list, dx, PD, delta);
 
-            // Recalculate internal forces after update
+            // Recalculate internal forces
             calculate_r(PD, point_list, NN, C1, delta);
+
+            // Output energy for monitoring
+            double energy = assembleEnergy(point_list);
+            std::cout << "Total energy: " << energy << std::endl;
         }
 
-        // Check if we actually converged properly
-        if (newton_iterations >= max_try) {
-            std::cout << "WARNING: Maximum Newton iterations reached without convergence for LF = " << LF << "!" << std::endl;
-            // Still continue to next load step, but with reduced step size if needed
-            if (loadStep > 0.001) {
-                loadStep *= 0.5;
-                std::cout << "Reducing load step to " << loadStep << " for next iterations" << std::endl;
+        // Check if Newton-Raphson converged
+        if (!converged) {
+            std::cout << "WARNING: Newton-Raphson did not converge in " << max_newton_iters << " iterations" << std::endl;
+
+            // Adapt step size for better convergence
+            if (load_step > 0.001) {
+                load_step /= 2.0;
+                load_factor -= load_step; // Back up one step
+                step_count--;
+                std::cout << "Reducing load step to " << load_step << " and retrying" << std::endl;
+                continue;
             }
         }
 
-        // Write intermediate results at regular intervals
-        if (completed_steps % 100 == 0 ||
-            std::abs(LF - 0.25) < loadStep ||
-            std::abs(LF - 0.5) < loadStep ||
-            std::abs(LF - 0.75) < loadStep) {
-            std::string filename = "mesh_step_" + std::to_string(completed_steps) + "_LF_" +
-                               std::to_string(LF) + ".vtk";
+        // Save intermediate results at specific intervals
+        if (step_count % 10 == 0 || std::abs(load_factor - 0.25) < load_step/2 ||
+            std::abs(load_factor - 0.5) < load_step/2 || std::abs(load_factor - 0.75) < load_step/2 ||
+            std::abs(load_factor - 1.0) < load_step/2) {
+            std::string filename = "mesh_step_" + std::to_string(step_count) +
+                                  "_LF_" + std::to_string(load_factor) + ".vtk";
             write_vtk(point_list, filename);
-            std::cout << "Wrote intermediate file: " << filename << std::endl;
+            std::cout << "Saved intermediate result: " << filename << std::endl;
         }
-
-        // Increment load factor and counter
-        std::cout << "Updating LF from " << LF << " to " << LF + loadStep << std::endl;
-        LF += loadStep;
-        completed_steps++;
-        counter++;
     }
 
-    // Write final results
-    std::string final_filename = "final_mesh_LF_" + std::to_string(LF-loadStep) + ".vtk";
-    write_vtk(point_list, final_filename);
-    write_vtk(point_list, "coloured_mesh.vtk");
+    // Save final results
+    write_vtk(point_list, "final_mesh.vtk");
     debug_it(PD, point_list);
 
-    std::cout << "Simulation completed successfully with " << completed_steps << " steps!" << std::endl;
+    // Calculate and print execution time
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end - start;
+    std::cout << "\n=== Simulation completed in " << elapsed.count() << " seconds ===" << std::endl;
+    std::cout << "Completed " << step_count << " load steps" << std::endl;
+
     return 0;
 }
