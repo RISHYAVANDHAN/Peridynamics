@@ -1,3 +1,7 @@
+//
+// Created by srini on 08/01/2025.
+//
+
 #ifndef SOLVER_H
 #define SOLVER_H
 
@@ -84,18 +88,12 @@ inline void calculate_r(int PD, std::vector<Points>& point_list, double NN, doub
     double Vh = (4.0 / 3.0) * pi * (delta * delta * delta);
 
     for (size_t i = 0; i < point_list.size(); i++) {
-        // Initialize all values to zero
         point_list[i].psi = 0.0;
         point_list[i].Ra_1 = Eigen::Vector3d::Zero();
         point_list[i].Ra_2 = Eigen::Vector3d::Zero();
         point_list[i].Ra_3 = Eigen::Vector3d::Zero();
-        point_list[i].Kab_1 = Eigen::Matrix3d::Zero();  // Initialize stiffness matrices!
-        point_list[i].Kab_2 = Eigen::Matrix3d::Zero();  // Initialize stiffness matrices!
-        point_list[i].Kab_3 = Eigen::Matrix3d::Zero();  // Initialize stiffness matrices!
 
-        // 1-neighbor interactions
         for (size_t j = 0; j < point_list[i].neighbour_list_1N.size(); j++) {
-            std::cout<<"1 - neighbour interaction is calculated";
             int neighbor_idx = point_list[i].neighbour_list_1N[j][0];
 
             Eigen::Vector3d Xi_1 = point_list[i].X - point_list[neighbor_idx].X;
@@ -111,10 +109,7 @@ inline void calculate_r(int PD, std::vector<Points>& point_list, double NN, doub
             point_list[i].Kab_1 += compute_Kab_1(xi_1, L, l, point_list[i].V_eff, C1);
         }
 
-        // 2-neighbor interactions
         for (size_t j = 0; j < point_list[i].neighbour_list_2N.size(); j++) {
-            std::cout<<"2 - neighbour interaction is calculated";
-
             int neighbor1_idx = point_list[i].neighbour_list_2N[j][0];
             int neighbor2_idx = point_list[i].neighbour_list_2N[j][1];
 
@@ -137,10 +132,7 @@ inline void calculate_r(int PD, std::vector<Points>& point_list, double NN, doub
             point_list[i].Kab_2 += compute_Kab_2(xi_1, xi_2, Xi_1, Xi_2, A, a, point_list[i].V_eff, C1);
         }
 
-        // 3-neighbor interactions
         for (size_t j = 0; j < point_list[i].neighbour_list_3N.size(); j++) {
-            std::cout<<"3 - neighbour interaction is calculated";
-
             int neighbor1_idx = point_list[i].neighbour_list_3N[j][0];
             int neighbor2_idx = point_list[i].neighbour_list_3N[j][1];
             int neighbor3_idx = point_list[i].neighbour_list_3N[j][2];
@@ -168,21 +160,11 @@ inline void calculate_r(int PD, std::vector<Points>& point_list, double NN, doub
             point_list[i].Kab_3 += compute_Kab_3(xi_1, xi_2, xi_3, Xi_1, Xi_2, Xi_3, V, v, point_list[i].V_eff, C1);
         }
 
-        // Sum up the residuals and stiffness matrices
         point_list[i].Ra_sum = point_list[i].Ra_1 + point_list[i].Ra_2 + point_list[i].Ra_3;
         point_list[i].Kab_sum = point_list[i].Kab_1 + point_list[i].Kab_2 + point_list[i].Kab_3;
     }
-
-    // Add debugging output for the first few points
-    if (point_list.size() > 0) {
-        static bool first_call = true;
-        if (first_call) {
-            std::cout << "First point stiffness matrix Kab_1:\n" << point_list[0].Kab_1 << std::endl;
-            std::cout << "First point stiffness matrix Kab_sum:\n" << point_list[0].Kab_sum << std::endl;
-            std::cout << "First point residual vector Ra_sum: " << point_list[0].Ra_sum.transpose() << std::endl;
-            first_call = false;
-        }
-    }
 }
 
-#endif // SOLVER_H
+
+
+#endif //SOLVER_H
