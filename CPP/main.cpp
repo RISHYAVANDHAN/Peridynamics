@@ -1,4 +1,4 @@
-//PERIDYNAMICS SIMULATION - Point-based Continuum Kinematics approach
+// PERIDYNAMICS SIMULATION - Point-based Continuum Kinematics approach
 
 #include "Points.h"
 #include "mesh.h"
@@ -27,7 +27,12 @@ int main(int argc, char *argv[]) {
     std::cout << "=== Starting Point-Based Peridynamics Simulation ===" << std::endl;
 
     // Simulation parameters
-    int PD = 1;                  // Problem dimension
+    int PD = 2;                  // Problem dimension
+    if (PD < 1 || PD > 3) {
+        std::cerr << "Error: PD must be 1, 2, or 3" << std::endl;
+        return 1;
+    }
+
     double domain_size = 10.0;   // Size of physical domain
     double delta = 3.0;          // Horizon (interaction radius)
     double Delta = 1.0;          // Point spacing
@@ -69,6 +74,9 @@ int main(int argc, char *argv[]) {
     generate_neighbour_list(PD, point_list, delta);
     std::cout << "Mesh generated with " << point_list.size() << " points and " << DOFs << " DOFs" << std::endl;
 
+    // Apply initial prescribed displacement
+    point_list = update_prescribed(point_list, 0.0, PD, delta);
+
     // Save initial configuration
     write_vtk(point_list, "initial_mesh.vtk");
     std::cout << "Initial mesh saved to 'initial_mesh.vtk'" << std::endl;
@@ -76,6 +84,18 @@ int main(int argc, char *argv[]) {
     // Calculate initial internal forces
     double NN = 0.0;  // Initial value for the nonlinear parameter
     calculate_r(PD, point_list, NN, C1, delta);
+
+    // Debugging: Check if stiffness matrices are initialized properly
+    bool matrices_ok = true;
+    for (size_t i = 0; i < point_list.size(); i++) {
+        if (point_list[i].Kab_1.norm() == 0 && !point_list[i].neighbour_list_1N.empty()) {
+            std::cout << "Warning: Point " << i << " has neighbors but zero Kab_1 matrix!" << std::endl;
+            matrices_ok = false;
+        }
+    }
+    if (matrices_ok) {
+        std::cout << "Stiffness matrices initialization check passed." << std::endl;
+    }
 
     // Main simulation loop - load stepping
     double load_step = 1.0 / max_steps;
@@ -104,6 +124,25 @@ int main(int argc, char *argv[]) {
         // Reset internal forces for this load step
         calculate_r(PD, point_list, NN, C1, delta);
 
+        // Debug output for first step
+        if (step_count == 1) {
+            std::cout << "--- Debug Output for First Load Step ---" << std::endl;
+            // Check if Ra_sum values are non-zero
+            double total_residual_norm = 0.0;
+            for (size_t i = 0; i < point_list.size(); i++) {
+                double ra_norm = point_list[i].Ra_sum.norm();
+                total_residual_norm += ra_norm;
+
+                if (i < 5) { // Print first 5 points for debugging
+                    std::cout << "Point " << i << " Ra_sum norm: " << ra_norm << std::endl;
+                    if (ra_norm > 0) {
+                        std::cout << "  Ra_sum values: [" << point_list[i].Ra_sum.transpose() << "]" << std::endl;
+                    }
+                }
+            }
+            std::cout << "Total residual norm of all points: " << total_residual_norm << std::endl;
+        }
+
         while (!converged && newton_iter < max_newton_iters) {
             newton_iter++;
 
@@ -111,10 +150,24 @@ int main(int argc, char *argv[]) {
             Eigen::VectorXd R = assembleResidual(point_list, DOFs);
             double residual_norm = R.norm();
 
+            // Assemble stiffness matrix
+            Eigen::SparseMatrix<double> K = assembleStiffness(point_list, DOFs, PD);
+
+            // Call debug_it to print detailed information
+            debug_it(PD, point_list, R, K);
+
             // Store initial residual for relative convergence check
             if (newton_iter == 1) {
                 residual_norm_initial = residual_norm;
                 std::cout << "Initial residual norm: " << residual_norm_initial << std::endl;
+
+                // Print some entries of the residual vector for debugging
+                if (step_count == 1) {
+                    std::cout << "First few entries of residual vector:" << std::endl;
+                    for (int i = 0; i < std::min(5, (int)R.size()); i++) {
+                        std::cout << "R[" << i << "] = " << R(i) << std::endl;
+                    }
+                }
 
                 // Handle case of very small initial residual
                 if (residual_norm_initial < tol) {
@@ -135,15 +188,7 @@ int main(int argc, char *argv[]) {
                 break;
             }
 
-            // Assemble stiffness matrix
-            Eigen::SparseMatrix<double> K = assembleStiffness(point_list, DOFs, PD);
-
-            if (K.nonZeros() == 0) {
-                std::cerr << "ERROR: Stiffness matrix is empty!" << std::endl;
-                break;
-            }
-
-            // Solve linear system without regularization
+            // Solve linear system
             Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
             solver.analyzePattern(K);
             solver.factorize(K);
@@ -151,12 +196,17 @@ int main(int argc, char *argv[]) {
             if (solver.info() != Eigen::Success) {
                 std::cerr << "ERROR: Factorization failed!" << std::endl;
 
-                // Try to adapt by reducing load step instead of adding regularization
-                load_step /= 2.0;
-                std::cout << "Reducing load step to " << load_step << " and retrying" << std::endl;
-                load_factor -= load_step; // Back up one step
-                step_count--;
-                break;
+                // Reduce load step and retry
+                if (load_step > 0.001) {
+                    load_step /= 2.0;
+                    std::cout << "Reducing load step to " << load_step << " and retrying" << std::endl;
+                    load_factor -= load_step; // Back up one step
+                    step_count--;
+                    break;
+                } else {
+                    std::cerr << "ERROR: Load step is already very small. Aborting simulation." << std::endl;
+                    return 1;
+                }
             }
 
             // Compute displacement increment
@@ -165,6 +215,15 @@ int main(int argc, char *argv[]) {
             if (solver.info() != Eigen::Success) {
                 std::cerr << "ERROR: Solve failed!" << std::endl;
                 break;
+            }
+
+            // Debug output for displacement increments
+            if (step_count == 1 && newton_iter == 1) {
+                std::cout << "Displacement increments norm: " << dx.norm() << std::endl;
+                std::cout << "First few displacement increments:" << std::endl;
+                for (int i = 0; i < std::min(5, (int)dx.size()); i++) {
+                    std::cout << "dx[" << i << "] = " << dx(i) << std::endl;
+                }
             }
 
             // Update positions
@@ -189,6 +248,9 @@ int main(int argc, char *argv[]) {
                 step_count--;
                 std::cout << "Reducing load step to " << load_step << " and retrying" << std::endl;
                 continue;
+            } else {
+                std::cerr << "ERROR: Load step is already very small. Aborting simulation." << std::endl;
+                return 1;
             }
         }
 
@@ -205,7 +267,6 @@ int main(int argc, char *argv[]) {
 
     // Save final results
     write_vtk(point_list, "final_mesh.vtk");
-    debug_it(PD, point_list);
 
     // Calculate and print execution time
     auto end = std::chrono::high_resolution_clock::now();

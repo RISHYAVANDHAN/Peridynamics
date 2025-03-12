@@ -6,18 +6,21 @@
 #include <Eigen/Sparse>
 #include "Points.h"
 
+// Function to compute the total energy of the system
 inline double assembleEnergy(const std::vector<Points>& point_list) {
     double Psi = 0.0;
 
     for (const auto& point : point_list) {
-        Psi += point.volume * point.psi;
+        Psi += point.volume * point.psi; // Sum up energy contributions from each point
     }
 
     return Psi;
 }
 
+// Function to assemble the residual vector
 inline Eigen::VectorXd assembleResidual(const std::vector<Points>& point_list, const int DOFs) {
-    Eigen::VectorXd R = Eigen::VectorXd::Zero(DOFs);
+    Eigen::VectorXd R = Eigen::VectorXd::Zero(DOFs); // Initialize residual vector
+
     for (size_t i = 0; i < point_list.size(); i++) {
         // Get residual for this point
         Eigen::VectorXd R_P = point_list[i].Ra_sum;
@@ -26,10 +29,10 @@ inline Eigen::VectorXd assembleResidual(const std::vector<Points>& point_list, c
         int PD = point_list[i].BC.size();
 
         for (int ii = 0; ii < PD; ii++) {
-            if (point_list[i].BC(ii) == 1) {
-                int dof_idx = static_cast<int>(point_list[i].DOF(ii));
-                if (dof_idx > 0 && dof_idx <= DOFs) {
-                    R(dof_idx-1) += R_P(ii);
+            if (point_list[i].BC(ii) == 1) { // Check if this DOF is active
+                int dof_idx = static_cast<int>(point_list[i].DOF(ii)); // Get DOF index
+                if (dof_idx > 0 && dof_idx <= DOFs) { // Ensure DOF index is valid
+                    R(dof_idx - 1) += R_P(ii); // Add contribution to residual vector
                 }
             }
         }
@@ -38,46 +41,43 @@ inline Eigen::VectorXd assembleResidual(const std::vector<Points>& point_list, c
     return R;
 }
 
+// Function to assemble the stiffness matrix
 inline Eigen::SparseMatrix<double> assembleStiffness(const std::vector<Points>& point_list, int DOFs, int PD) {
-    std::vector<Eigen::Triplet<double>> triplets;  // For sparse matrix storage
+    std::vector<Eigen::Triplet<double>> triplets; // For sparse matrix storage
 
     // Iterate over each point in the point list
-    for (auto p = 0; p < point_list.size(); ++p) {
-        Eigen::MatrixXd K_P = point_list[p].Kab_sum;  // Total stiffness matrix for point p
-        Eigen::Vector3d BCflg_p = point_list[p].BC;   // Boundary condition flags for point p
-        Eigen::Vector3d DOF_p = point_list[p].DOF;    // DOF for point p
+    for (size_t p = 0; p < point_list.size(); ++p) {
+        const Eigen::Matrix3d& K_P = point_list[p].Kab_sum; // Total stiffness matrix for point p
+        const Eigen::Vector3d& BCflg_p = point_list[p].BC; // Boundary condition flags for point p
+        const Eigen::Vector3d& DOF_p = point_list[p].DOF;  // DOF for point p
 
-        // Loop over each dimension (x, y, z) depending on PD (1D, 2D or 3D)
+        // Loop over each dimension (x, y, z) depending on PD (1D, 2D, or 3D)
         for (int pp = 0; pp < PD; ++pp) {
-            if (BCflg_p(pp) == 1) {  // Check if this DOF is active
-                int dof_p = static_cast<int>(DOF_p(pp));  // Global DOF index for point p
+            if (BCflg_p(pp) == 1) { // Check if this DOF is active
+                int row = static_cast<int>(DOF_p(pp)) - 1; // Convert to 0-based indexing
 
-                // Make sure dof_p is valid (zero-indexed)
-                if (dof_p >= 0 && dof_p < DOFs) {
-                    // Copy neighbor list (2D vector) and append `p` to its own list of neighbors
-                    std::vector<std::vector<int>> nbrL = point_list[p].neighbour_list;
-                    nbrL.push_back({p});  // Append the current point to its neighbors
+                if (row >= 0 && row < DOFs) { // Ensure row index is valid
+                    // Self contribution (diagonal entry)
+                    if (pp < K_P.rows() && pp < K_P.cols()) {
+                        triplets.emplace_back(row, row, K_P(pp, pp));
+                    }
 
-                    // Loop over each neighbor (including self)
-                    for (size_t q_idx = 0; q_idx < nbrL.size(); ++q_idx) {
-                        int q = nbrL[q_idx][0];  // Get the neighbor index
+                    // Check neighbors
+                    for (size_t j = 0; j < point_list[p].neighbour_list.size(); ++j) {
+                        int q = point_list[p].neighbour_list[j][0]; // Neighbor index
 
-                        // Get the boundary condition flags and DOFs for neighbor `q`
-                        Eigen::Vector3d BCflg_q = point_list[q].BC;
-                        Eigen::Vector3d DOF_q = point_list[q].DOF;
+                        const Eigen::Vector3d& BCflg_q = point_list[q].BC; // Boundary condition flags for neighbor q
+                        const Eigen::Vector3d& DOF_q = point_list[q].DOF;  // DOF for neighbor q
 
-                        // Loop over each dimension (x, y, z) for neighbor `q`
+                        // Loop over each dimension (x, y, z) for neighbor q
                         for (int qq = 0; qq < PD; ++qq) {
-                            if (BCflg_q(qq) == 1) {  // Check if this DOF for neighbor `q` is active
-                                int dof_q = static_cast<int>(DOF_q(qq));  // Global DOF index for neighbor `q`
+                            if (BCflg_q(qq) == 1) { // Check if this DOF for neighbor q is active
+                                int col = static_cast<int>(DOF_q(qq)) - 1; // Convert to 0-based indexing
 
-                                // Safely get the value from K_P
-                                if (pp < K_P.rows() && q_idx * PD + qq < K_P.cols()) {
-                                    double K_value = K_P(pp, q_idx * PD + qq);
-
-                                    // Add to the triplet list (for sparse matrix construction)
-                                    if (dof_q >= 0 && dof_q < DOFs) {
-                                        triplets.emplace_back(dof_p, dof_q, K_value);
+                                if (col >= 0 && col < DOFs) { // Ensure column index is valid
+                                    // Add off-diagonal contribution if available
+                                    if (pp < K_P.rows() && qq < K_P.cols()) {
+                                        triplets.emplace_back(row, col, K_P(pp, qq));
                                     }
                                 }
                             }

@@ -1,7 +1,3 @@
-//
-// Created by srini on 24/11/2024.
-//
-
 #ifndef MESH_H
 #define MESH_H
 
@@ -13,6 +9,7 @@
 #include <string>
 #include <Eigen/Dense>
 
+// Function to compute deformation gradient (FF)
 Eigen::Matrix3d Compute_FF(int PD, double d, const std::string& DEFflag) {
     Eigen::Matrix3d I = Eigen::Matrix3d::Identity(); // Identity matrix
     Eigen::Matrix3d FF = Eigen::Matrix3d::Zero();    // Initialize FF as zero matrix
@@ -30,6 +27,7 @@ Eigen::Matrix3d Compute_FF(int PD, double d, const std::string& DEFflag) {
     return FF;
 }
 
+// Function to assign degrees of freedom (DOFs)
 void AssignDOF(std::vector<Points>& point_list, int PD, int& DOFs) {
     for (size_t i = 0; i < point_list.size(); i++) {
         for (int p = 0; p < PD; ++p) {
@@ -41,6 +39,21 @@ void AssignDOF(std::vector<Points>& point_list, int PD, int& DOFs) {
     }
 }
 
+// Function to assign volumes to points
+void AssignVolumes(std::vector<Points>& point_list, int PD, double Delta) {
+    double volume = 1.0; // Default volume for 1D
+    if (PD == 2) {
+        volume = Delta * Delta; // Volume for 2D
+    } else if (PD == 3) {
+        volume = Delta * Delta * Delta; // Volume for 3D
+    }
+
+    for (auto& point : point_list) {
+        point.volume = volume; // Assign volume to each point
+    }
+}
+
+// Function to generate the mesh
 std::vector<Points> generate_mesh(int PD, double d, double domain_size, int number_of_points, int number_of_patches, double Delta, int number_of_right_patches, const std::string& DEFflag, int& DOFs) {
     double extended_domain_size = domain_size + (number_of_patches + number_of_right_patches) * Delta;
     std::cout << "Domain size: " << domain_size << " & Extended Domain size: " << extended_domain_size << std::endl;
@@ -121,9 +134,10 @@ std::vector<Points> generate_mesh(int PD, double d, double domain_size, int numb
             break;
     }
 
+    // Assign volumes to points
+    AssignVolumes(point_list, PD, Delta);
+
     return point_list;
 }
 
-
-#endif
-//MESH_H
+#endif // MESH_H
