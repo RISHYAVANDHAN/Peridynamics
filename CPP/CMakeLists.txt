@@ -16,6 +16,9 @@ add_executable(CPP main.cpp
         Assemble.h
         VTKExport.h
         update.h
+        mesh.cpp
+        UnitTest.h
+        UnitTest.cpp
 )
 
 target_link_libraries(CPP PRIVATE Eigen3::Eigen)

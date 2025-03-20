@@ -5,82 +5,208 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include "Points.h"
+#include <iostream>
 
-// Function to compute the total energy of the system
-inline double assembleEnergy(const std::vector<Points>& point_list) {
-    double Psi = 0.0;
+// Assemble the global energy
+inline double assembleEnergy(const std::vector<Points>& points) {
+    double global_energy = 0.0;
 
-    for (const auto& point : point_list) {
-        Psi += point.volume * point.psi; // Sum up energy contributions from each point
+    for (const auto& p : points) {
+        global_energy += p.psi;  // Accumulate energy from each point
     }
 
-    return Psi;
+    // Debug output
+    std::cout << "Total energy calculated in assembleEnergy: " << global_energy << std::endl;
+    return global_energy;
 }
 
-// Function to assemble the residual vector
-inline Eigen::VectorXd assembleResidual(const std::vector<Points>& point_list, const int DOFs) {
-    Eigen::VectorXd R = Eigen::VectorXd::Zero(DOFs); // Initialize residual vector
+// Assemble the global residual vector
+inline Eigen::VectorXd assembleResidual(const std::vector<Points>& points, int DOFs, int PD) {
+    Eigen::VectorXd R = Eigen::VectorXd::Zero(DOFs);
 
-    for (size_t i = 0; i < point_list.size(); i++) {
-        // Get residual for this point
-        Eigen::VectorXd R_P = point_list[i].Ra_sum;
+    // Debug count
+    int free_dofs_count = 0;
 
-        // Get dimension from BC vector
-        int PD = point_list[i].BC.size();
+    for (size_t p_idx = 0; p_idx < points.size(); ++p_idx) {
+        const Points& p = points[p_idx];
 
-        for (int ii = 0; ii < PD; ii++) {
-            if (point_list[i].BC(ii) == 1) { // Check if this DOF is active
-                int dof_idx = static_cast<int>(point_list[i].DOF(ii)); // Get DOF index
-                if (dof_idx > 0 && dof_idx <= DOFs) { // Ensure DOF index is valid
-                    R(dof_idx - 1) += R_P(ii); // Add contribution to residual vector
+        // Only consider free DOFs (BC == 1)
+        for (int dim = 0; dim < PD; ++dim) {
+            if (p.BC[dim] == 1) {  // Free DOF
+                int idx = p.DOF[dim] - 1;  // Convert 1-based DOF to 0-based index
+                if (idx >= 0 && idx < DOFs) {
+                    R(idx) += p.Ra_sum(dim);  // Accumulate residual
+                    free_dofs_count++;
                 }
             }
         }
     }
 
+    // Debug output
+    std::cout << "Free DOFs count: " << free_dofs_count << ", Residual norm in assembleResidual: " << R.norm() << std::endl;
     return R;
 }
 
-// Function to assemble the stiffness matrix
-inline Eigen::SparseMatrix<double> assembleStiffness(const std::vector<Points>& point_list, int DOFs, int PD) {
-    std::vector<Eigen::Triplet<double>> triplets; // For sparse matrix storage
+// Assemble the global stiffness matrix
+inline Eigen::SparseMatrix<double> assembleStiffness(const std::vector<Points>& points, int DOFs, int PD) {
+    std::vector<Eigen::Triplet<double>> triplets;
+    triplets.reserve(DOFs * 10);  // Reserve space for non-zero entries
 
-    // Iterate over each point in the point list
-    for (size_t p = 0; p < point_list.size(); ++p) {
-        const Eigen::Matrix3d& K_P = point_list[p].Kab_sum; // Total stiffness matrix for point p
-        const Eigen::Vector3d& BCflg_p = point_list[p].BC; // Boundary condition flags for point p
-        const Eigen::Vector3d& DOF_p = point_list[p].DOF;  // DOF for point p
+    // Debug count
+    int stiffness_entries = 0;
 
-        // Loop over each dimension (x, y, z) depending on PD (1D, 2D, or 3D)
-        for (int pp = 0; pp < PD; ++pp) {
-            if (BCflg_p(pp) == 1) { // Check if this DOF is active
-                int row = static_cast<int>(DOF_p(pp)) - 1; // Convert to 0-based indexing
+    // For each point, add its contribution to the global stiffness matrix
+    for (size_t i = 0; i < points.size(); ++i) {
+        const Points& point_i = points[i];
 
-                if (row >= 0 && row < DOFs) { // Ensure row index is valid
-                    // Self contribution (diagonal entry)
-                    if (pp < K_P.rows() && pp < K_P.cols()) {
-                        triplets.emplace_back(row, row, K_P(pp, pp));
+        // Add point i's diagonal contribution to itself (self-stiffness)
+        for (int dim_i = 0; dim_i < PD; ++dim_i) {
+            if (point_i.BC[dim_i] != 1) continue;  // Skip constrained DOFs
+            int row = point_i.DOF[dim_i] - 1;  // Convert 1-based DOF to 0-based index
+
+            for (int dim_j = 0; dim_j < PD; ++dim_j) {
+                if (point_i.BC[dim_j] != 1) continue;  // Skip constrained DOFs
+                int col = point_i.DOF[dim_j] - 1;
+
+                if (row >= 0 && col >= 0 && row < DOFs && col < DOFs) {
+                    triplets.emplace_back(row, col, point_i.Kab_sum(dim_i, dim_j));
+                    stiffness_entries++;
+                }
+            }
+        }
+
+        // 1N interactions
+        for (const auto& neighbor : point_i.neighbour_list_1N) {
+            size_t j = neighbor[0];
+            if (j >= points.size()) continue;
+
+            const Points& point_j = points[j];
+
+            // Calculate off-diagonal contribution (i to j)
+            for (int dim_i = 0; dim_i < PD; ++dim_i) {
+                if (point_i.BC[dim_i] != 1) continue;  // Skip constrained DOFs
+                int row = point_i.DOF[dim_i] - 1;
+
+                for (int dim_j = 0; dim_j < PD; ++dim_j) {
+                    if (point_j.BC[dim_j] != 1) continue;  // Skip constrained DOFs
+                    int col = point_j.DOF[dim_j] - 1;
+
+                    if (row >= 0 && col >= 0 && row < DOFs && col < DOFs) {
+                        // For 1N neighbors, use the negative of Kab_1
+                        triplets.emplace_back(row, col, -point_i.Kab_1(dim_i, dim_j));
+                        stiffness_entries++;
                     }
+                }
+            }
+        }
 
-                    // Check neighbors
-                    for (size_t j = 0; j < point_list[p].neighbour_list.size(); ++j) {
-                        int q = point_list[p].neighbour_list[j][0]; // Neighbor index
+        // 2N interactions (only for PD >= 2)
+        if (PD >= 2) {
+            for (const auto& neighbor_pair : point_i.neighbour_list_2N) {
+                size_t j1 = neighbor_pair[0];
+                size_t j2 = neighbor_pair[1];
 
-                        const Eigen::Vector3d& BCflg_q = point_list[q].BC; // Boundary condition flags for neighbor q
-                        const Eigen::Vector3d& DOF_q = point_list[q].DOF;  // DOF for neighbor q
+                if (j1 >= points.size() || j2 >= points.size()) continue;
 
-                        // Loop over each dimension (x, y, z) for neighbor q
-                        for (int qq = 0; qq < PD; ++qq) {
-                            if (BCflg_q(qq) == 1) { // Check if this DOF for neighbor q is active
-                                int col = static_cast<int>(DOF_q(qq)) - 1; // Convert to 0-based indexing
+                const Points& point_j1 = points[j1];
+                const Points& point_j2 = points[j2];
 
-                                if (col >= 0 && col < DOFs) { // Ensure column index is valid
-                                    // Add off-diagonal contribution if available
-                                    if (pp < K_P.rows() && qq < K_P.cols()) {
-                                        triplets.emplace_back(row, col, K_P(pp, qq));
-                                    }
-                                }
-                            }
+                // Calculate off-diagonal contribution for j1
+                for (int dim_i = 0; dim_i < PD; ++dim_i) {
+                    if (point_i.BC[dim_i] != 1) continue;  // Skip constrained DOFs
+                    int row = point_i.DOF[dim_i] - 1;
+
+                    for (int dim_j = 0; dim_j < PD; ++dim_j) {
+                        if (point_j1.BC[dim_j] != 1) continue;  // Skip constrained DOFs
+                        int col = point_j1.DOF[dim_j] - 1;
+
+                        if (row >= 0 && col >= 0 && row < DOFs && col < DOFs) {
+                            // For 2N neighbors, use the negative of Kab_2
+                            triplets.emplace_back(row, col, -point_i.Kab_2(dim_i, dim_j));
+                            stiffness_entries++;
+                        }
+                    }
+                }
+
+                // Calculate off-diagonal contribution for j2
+                for (int dim_i = 0; dim_i < PD; ++dim_i) {
+                    if (point_i.BC[dim_i] != 1) continue;  // Skip constrained DOFs
+                    int row = point_i.DOF[dim_i] - 1;
+
+                    for (int dim_j = 0; dim_j < PD; ++dim_j) {
+                        if (point_j2.BC[dim_j] != 1) continue;  // Skip constrained DOFs
+                        int col = point_j2.DOF[dim_j] - 1;
+
+                        if (row >= 0 && col >= 0 && row < DOFs && col < DOFs) {
+                            // For 2N neighbors, use the negative of Kab_2
+                            triplets.emplace_back(row, col, -point_i.Kab_2(dim_i, dim_j));
+                            stiffness_entries++;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3N interactions (only for PD == 3)
+        if (PD == 3) {
+            for (const auto& neighbor_triplet : point_i.neighbour_list_3N) {
+                size_t j1 = neighbor_triplet[0];
+                size_t j2 = neighbor_triplet[1];
+                size_t j3 = neighbor_triplet[2];
+
+                if (j1 >= points.size() || j2 >= points.size() || j3 >= points.size()) continue;
+
+                const Points& point_j1 = points[j1];
+                const Points& point_j2 = points[j2];
+                const Points& point_j3 = points[j3];
+
+                // Calculate off-diagonal contribution for j1
+                for (int dim_i = 0; dim_i < PD; ++dim_i) {
+                    if (point_i.BC[dim_i] != 1) continue;  // Skip constrained DOFs
+                    int row = point_i.DOF[dim_i] - 1;
+
+                    for (int dim_j = 0; dim_j < PD; ++dim_j) {
+                        if (point_j1.BC[dim_j] != 1) continue;  // Skip constrained DOFs
+                        int col = point_j1.DOF[dim_j] - 1;
+
+                        if (row >= 0 && col >= 0 && row < DOFs && col < DOFs) {
+                            // For 3N neighbors, use the negative of Kab_3
+                            triplets.emplace_back(row, col, -point_i.Kab_3(dim_i, dim_j));
+                            stiffness_entries++;
+                        }
+                    }
+                }
+
+                // Calculate off-diagonal contribution for j2
+                for (int dim_i = 0; dim_i < PD; ++dim_i) {
+                    if (point_i.BC[dim_i] != 1) continue;  // Skip constrained DOFs
+                    int row = point_i.DOF[dim_i] - 1;
+
+                    for (int dim_j = 0; dim_j < PD; ++dim_j) {
+                        if (point_j2.BC[dim_j] != 1) continue;  // Skip constrained DOFs
+                        int col = point_j2.DOF[dim_j] - 1;
+
+                        if (row >= 0 && col >= 0 && row < DOFs && col < DOFs) {
+                            // For 3N neighbors, use the negative of Kab_3
+                            triplets.emplace_back(row, col, -point_i.Kab_3(dim_i, dim_j));
+                            stiffness_entries++;
+                        }
+                    }
+                }
+
+                // Calculate off-diagonal contribution for j3
+                for (int dim_i = 0; dim_i < PD; ++dim_i) {
+                    if (point_i.BC[dim_i] != 1) continue;  // Skip constrained DOFs
+                    int row = point_i.DOF[dim_i] - 1;
+
+                    for (int dim_j = 0; dim_j < PD; ++dim_j) {
+                        if (point_j3.BC[dim_j] != 1) continue;  // Skip constrained DOFs
+                        int col = point_j3.DOF[dim_j] - 1;
+
+                        if (row >= 0 && col >= 0 && row < DOFs && col < DOFs) {
+                            // For 3N neighbors, use the negative of Kab_3
+                            triplets.emplace_back(row, col, -point_i.Kab_3(dim_i, dim_j));
+                            stiffness_entries++;
                         }
                     }
                 }
@@ -88,9 +214,14 @@ inline Eigen::SparseMatrix<double> assembleStiffness(const std::vector<Points>& 
         }
     }
 
-    // Construct the sparse matrix using the triplets collected
+    // Debug output
+    std::cout << "Added " << stiffness_entries << " entries to stiffness matrix" << std::endl;
+
+    // Build the sparse stiffness matrix
     Eigen::SparseMatrix<double> K(DOFs, DOFs);
     K.setFromTriplets(triplets.begin(), triplets.end());
+    K.makeCompressed();
+
     return K;
 }
 

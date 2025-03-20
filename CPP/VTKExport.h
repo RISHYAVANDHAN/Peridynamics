@@ -1,51 +1,45 @@
-//
-// Created by srini on 28/02/2025.
-//
-
 #ifndef VTKEXPORT_H
 #define VTKEXPORT_H
 
+#include <vector>
+#include <fstream>
 #include "Points.h"
-#include "mesh.h"
-#include "Neighbour.h"
 
-void write_vtk(const std::vector<Points>& point_list, const std::string& filename) {
-    std::ofstream vtk_file;
-    vtk_file.open(filename);
-
-    if (!vtk_file.is_open()) {
-        std::cerr << "Failed to open VTK file for writing: " << filename << std::endl;
+void write_vtk(const std::vector<Points>& points, const std::string& filename) {
+    std::ofstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open file " << filename << " for writing.\n";
         return;
     }
 
-    vtk_file << "# vtk DataFile Version 4.2" << std::endl;
-    vtk_file << "Generated Mesh Data" << std::endl;
-    vtk_file << "ASCII" << std::endl;
-    vtk_file << "DATASET POLYDATA" << std::endl;
-    vtk_file << "POINTS " << point_list.size() << " float" << std::endl;
-    for (const auto& point : point_list) {
-        vtk_file << std::fixed << std::setprecision(6);
-        vtk_file << point.X[0] << " " << point.X[1] << " " << point.X[2] << std::endl;
-    }
-    vtk_file << "POINT_DATA " << point_list.size() << std::endl;
-    vtk_file << "SCALARS BC int 1" << std::endl;
-    vtk_file << "LOOKUP_TABLE default" << std::endl;
-    for (const auto& point : point_list) {
-        vtk_file << point.BC[0] << " " << point.BC[1] << " " << point.BC[2] << std::endl;
-    }
-    vtk_file << "SCALARS Color float 1" << std::endl;
-    vtk_file << "LOOKUP_TABLE default" << std::endl;
-    for (const auto& point : point_list) {
-        if (point.Flag != "Patch") {
-            vtk_file << "1.0\n";
-        } else {
-            vtk_file << "0.0\n";
-        }
+    file << "# vtk DataFile Version 3.0\n";
+    file << "VTK file for point data\n";
+    file << "ASCII\n";
+    file << "DATASET UNSTRUCTURED_GRID\n";
+
+    file << "POINTS " << points.size() << " double\n";
+    for (const auto& point : points) {
+        file << point.x[0] << " " << point.x[1] << " " << point.x[2] << "\n";
     }
 
-    vtk_file.close();
-    std::cout << "VTK file written to " << filename << std::endl;
+    file << "CELLS " << points.size() << " " << 2 * points.size() << "\n";
+    for (size_t i = 0; i < points.size(); ++i) {
+        file << "1 " << i << "\n";
+    }
+
+    file << "CELL_TYPES " << points.size() << "\n";
+    for (size_t i = 0; i < points.size(); ++i) {
+        file << "1\n";
+    }
+
+    file << "POINT_DATA " << points.size() << "\n";
+    file << "SCALARS volume double 1\n";
+    file << "LOOKUP_TABLE default\n";
+    for (const auto& point : points) {
+        file << point.volume << "\n";
+    }
+
+    file.close();
 }
 
-
-#endif //VTKEXPORT_H
+#endif // VTKEXPORT_H

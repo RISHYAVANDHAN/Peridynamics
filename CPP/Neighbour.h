@@ -1,85 +1,74 @@
-//
-// Created by srini on 28/11/2024.
-//
-
-
-//Debugging reference for future, the idx for 2d with domain 10.0, Delta 1.0, delta 3.0 is 2676
-
 #ifndef NEIGHBOUR_H
 #define NEIGHBOUR_H
 
-#include <iostream>
-#include <memory>
 #include <vector>
-#include <algorithm>
 #include <set>
 #include <cmath>
 #include "Points.h"
 
 inline bool NeighbourCheck(const Points& a, const Points& b, double delta) {
-    double diff_x = a.X[0] - b.X[0];
-    double diff_y = a.X[1] - b.X[1];
-    double diff_z = a.X[2] - b.X[2];
-    return sqrt(diff_x * diff_x + diff_y * diff_y + diff_z * diff_z) < delta;
+    Eigen::Vector3d diff = a.X - b.X;
+    return diff.norm() < delta;
 }
 
 inline void generate_neighbour_list(int PD, std::vector<Points>& point_list, double delta) {
-    if (point_list.empty()) {
-        std::cerr << "Point list is empty. Exiting..." << std::endl;
-        return;
-    }
+    if (point_list.empty()) return;
 
     for (size_t i = 0; i < point_list.size(); ++i) {
-        int n1 = 0, n2 = 0, n3 = 0;
+        // Clear existing neighbor lists
         point_list[i].neighbour_list_1N.clear();
         point_list[i].neighbour_list_2N.clear();
         point_list[i].neighbour_list_3N.clear();
-        point_list[i].neighbour_list.clear();
+        point_list[i].n1 = point_list[i].n2 = point_list[i].n3 = 0;
 
-        std::set<std::vector<int>> unique_pairs;
-        std::set<std::vector<int>> unique_triplets;
-
+        // 1-Neighbors
         for (size_t j = 0; j < point_list.size(); ++j) {
             if (i != j && NeighbourCheck(point_list[i], point_list[j], delta)) {
-                std::vector<int> single = {point_list[j].Nr};
-                point_list[i].neighbour_list_1N.push_back(single);
-                n1++;
+                point_list[i].neighbour_list_1N.push_back({static_cast<int>(j)});
+                point_list[i].n1++;
+            }
+        }
 
-                if (PD >= 2) {
-                    for (size_t k = 0; k < point_list.size(); ++k) {
-                        if (k != j && k != i &&
-                            NeighbourCheck(point_list[k], point_list[j], delta) &&
-                            NeighbourCheck(point_list[k], point_list[i], delta)) {
+        // 2-Neighbors (non-collinear pairs)
+        if (PD >= 2) {
+            for (size_t j = 0; j < point_list.size(); ++j) {
+                for (size_t k = j + 1; k < point_list.size(); ++k) {
+                    if (i != j && i != k && j != k &&
+                        NeighbourCheck(point_list[i], point_list[j], delta) &&
+                        NeighbourCheck(point_list[i], point_list[k], delta) &&
+                        NeighbourCheck(point_list[j], point_list[k], delta)) {
 
-                            std::vector<int> pair = {
-                                std::min(point_list[k].Nr, point_list[j].Nr),
-                                std::max(point_list[k].Nr, point_list[j].Nr)
-                            };
+                        Eigen::Vector3d vec1 = point_list[j].X - point_list[i].X;
+                        Eigen::Vector3d vec2 = point_list[k].X - point_list[i].X;
+                        if (vec1.cross(vec2).norm() > 1e-12) {  // Non-collinear
+                            point_list[i].neighbour_list_2N.push_back({static_cast<int>(j), static_cast<int>(k)});
+                            point_list[i].n2++;
+                        }
+                    }
+                }
+            }
+        }
 
-                            if (unique_pairs.insert(pair).second) {
-                                point_list[i].neighbour_list_2N.push_back(pair);
-                                n2++;
-                            }
+        // 3-Neighbors (non-coplanar triplets)
+        if (PD == 3) {
+            for (size_t j = 0; j < point_list.size(); ++j) {
+                for (size_t k = j + 1; k < point_list.size(); ++k) {
+                    for (size_t l = k + 1; l < point_list.size(); ++l) {
+                        if (i != j && i != k && i != l && j != k && j != l && k != l &&
+                            NeighbourCheck(point_list[i], point_list[j], delta) &&
+                            NeighbourCheck(point_list[i], point_list[k], delta) &&
+                            NeighbourCheck(point_list[i], point_list[l], delta) &&
+                            NeighbourCheck(point_list[j], point_list[k], delta) &&
+                            NeighbourCheck(point_list[j], point_list[l], delta) &&
+                            NeighbourCheck(point_list[k], point_list[l], delta)) {
 
-                            if (PD == 3) {
-                                for (size_t l = 0; l < point_list.size(); ++l) {
-                                    if (l != k && l != j && l != i &&
-                                        NeighbourCheck(point_list[l], point_list[k], delta) &&
-                                        NeighbourCheck(point_list[l], point_list[j], delta) &&
-                                        NeighbourCheck(point_list[l], point_list[i], delta)) {
-
-                                        std::vector<int> triplet = {
-                                            std::min({point_list[k].Nr, point_list[j].Nr, point_list[l].Nr}),
-                                            std::min({std::max(point_list[k].Nr, point_list[j].Nr), point_list[l].Nr}),
-                                            std::max({point_list[k].Nr, point_list[j].Nr, point_list[l].Nr})
-                                        };
-
-                                        if (unique_triplets.insert(triplet).second) {
-                                            point_list[i].neighbour_list_3N.push_back(triplet);
-                                            n3++;
-                                        }
-                                    }
-                                }
+                            Eigen::Vector3d vec1 = point_list[j].X - point_list[i].X;
+                            Eigen::Vector3d vec2 = point_list[k].X - point_list[i].X;
+                            Eigen::Vector3d vec3 = point_list[l].X - point_list[i].X;
+                            double vol = std::abs(vec1.dot(vec2.cross(vec3)));
+                            if (vol > 1e-12) {  // Non-coplanar
+                                point_list[i].neighbour_list_3N.push_back({static_cast<int>(j), static_cast<int>(k), static_cast<int>(l)});
+                                point_list[i].n3++;
                             }
                         }
                     }
@@ -87,14 +76,18 @@ inline void generate_neighbour_list(int PD, std::vector<Points>& point_list, dou
             }
         }
 
-        point_list[i].n1 = n1;
-        point_list[i].n2 = n2;
-        point_list[i].n3 = n3;
-        point_list[i].neighbour_list.insert(point_list[i].neighbour_list.end(), point_list[i].neighbour_list_1N.begin(), point_list[i].neighbour_list_1N.end());
-        point_list[i].neighbour_list.insert(point_list[i].neighbour_list.end(), point_list[i].neighbour_list_2N.begin(), point_list[i].neighbour_list_2N.end());
-        point_list[i].neighbour_list.insert(point_list[i].neighbour_list.end(), point_list[i].neighbour_list_3N.begin(), point_list[i].neighbour_list_3N.end());
+        // Debug: Print neighbor counts
+        std::cout << "Point " << i << " 1N neighbors: " << point_list[i].n1 << "\n";
+        std::cout << "Point " << i << " 2N neighbors: " << point_list[i].n2 << "\n";
+        std::cout << "Point " << i << " 3N neighbors: " << point_list[i].n3 << "\n";
+        point_list[i].neighbour_list = point_list[i].neighbour_list_1N;
+        point_list[i].neighbour_list.insert(point_list[i].neighbour_list.end(),
+                                            point_list[i].neighbour_list_2N.begin(),
+                                            point_list[i].neighbour_list_2N.end());
+        point_list[i].neighbour_list.insert(point_list[i].neighbour_list.end(),
+                                            point_list[i].neighbour_list_3N.begin(),
+                                            point_list[i].neighbour_list_3N.end());
     }
 }
 
-
-#endif //NEIGHBOUR_H
+#endif // NEIGHBOUR_H
