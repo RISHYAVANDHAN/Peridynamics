@@ -20,4 +20,5 @@ void testResidualCalculation();
 void testStiffnessCalculation();
 void runUnitTests();
 
+
 #endif // UNITTEST_H

@@ -42,4 +42,5 @@ void write_vtk(const std::vector<Points>& points, const std::string& filename) {
     file.close();
 }
 
+
 #endif // VTKEXPORT_H
