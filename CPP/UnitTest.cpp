@@ -168,4 +168,5 @@ void runUnitTests() {
     testEnergyCalculation();
     testResidualCalculation();
     testStiffnessCalculation();
+
 }

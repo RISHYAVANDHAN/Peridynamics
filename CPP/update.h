@@ -66,4 +66,5 @@ std::vector<Points> update_displaced(std::vector<Points>& point_list, const Eige
     return point_list;
 }
 
+
 #endif // UPDATE_H

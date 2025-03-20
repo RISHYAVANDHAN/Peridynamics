@@ -170,4 +170,5 @@ inline void calculate_r(int PD, std::vector<Points>& point_list, double C1, doub
     }
 }
 
+
 #endif // SOLVER_H

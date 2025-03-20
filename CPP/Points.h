@@ -59,4 +59,5 @@ public:
     Points() = default;
 };
 
+
 #endif // POINTS_H

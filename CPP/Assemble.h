@@ -225,4 +225,5 @@ inline Eigen::SparseMatrix<double> assembleStiffness(const std::vector<Points>& 
     return K;
 }
 
+
 #endif // ASSEMBLE_H

@@ -99,4 +99,5 @@ void debug_it(int PD, std::vector<Points>& point_list, const Eigen::VectorXd& R,
     std::cout << "\n=== End of Debug Output ===" << std::endl;
 }
 
+
 #endif // DEBUG_H

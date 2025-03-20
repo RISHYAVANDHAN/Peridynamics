@@ -90,4 +90,5 @@ inline void generate_neighbour_list(int PD, std::vector<Points>& point_list, dou
     }
 }
 
+
 #endif // NEIGHBOUR_H
