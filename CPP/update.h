@@ -6,65 +6,58 @@
 #include "Points.h"
 #include "Neighbour.h"
 
+// === APPLY PRESCRIBED DISPLACEMENT === //
 std::vector<Points> update_prescribed(const std::vector<Points>& points, double LF, int PD, double delta) {
     std::vector<Points> updated_points = points;
-    int free_dof_count = 0;
-    int fixed_dof_count = 0;
+    Eigen::Matrix3d FF = Compute_FF(PD, LF * 0.25, "EXP");  // Use 0.25 from your d parameter
 
     for (auto& point : updated_points) {
-        // Update prescribed boundary conditions
-        for (int dim = 0; dim < PD; ++dim) {
-            if (point.BC[dim] == 0) { // Fixed DOF
-                point.x[dim] = point.X[dim] + LF * point.BCval[dim];
-                fixed_dof_count++;
-            } else { // Free DOF
-                free_dof_count++;
+        if (point.Flag == "Patch") {
+            // Left patches stay fixed
+            continue;
+        }
+        else if (point.Flag == "RightPatch") {
+            // Right patches move according to deformation gradient
+            point.x = FF * point.X;
+        }
+        else if (point.Flag == "Point") {
+            // Only apply prescribed displacement for constrained DOFs
+            if (PD == 1) {
+                if (point.BC[0] == 0) {
+                    point.x = FF * point.X;
+                }
             }
         }
     }
-
-    std::cout << "Number of free DOFs after BC update: " << free_dof_count << std::endl;
-    std::cout << "Number of fixed DOFs after BC update: " << fixed_dof_count << std::endl;
-
-    // Check if we have any free DOFs
-    if (free_dof_count == 0) {
-        std::cout << "WARNING: No free DOFs found. Simulation will not progress!" << std::endl;
-    }
-
     return updated_points;
 }
 
+// === APPLY SOLVER DISPLACEMENT === //
 std::vector<Points> update_displaced(std::vector<Points>& point_list, const Eigen::VectorXd& dx, int PD, double delta) {
-    // Safety check
-    if (dx.size() == 0) {
-        std::cout << "WARNING: Empty displacement vector in update_displaced!" << std::endl;
-        return point_list;
+    // Store previous positions for all points before updating
+    for (auto& point : point_list) {
+        point.x_prev = point.x;
     }
 
-    int updated_count = 0;
-    double max_disp = 0.0;
-
+    // Apply displacements only to unconstrained points
     for (auto& point : point_list) {
+        if (point.Flag == "Patch" || point.Flag == "RightPatch") {
+            // Patches (both left and right) don't move from solver
+            continue;
+        }
+
+        // Regular points update from solver - only for free DOFs (BC==1)
         for (int dim = 0; dim < PD; ++dim) {
-            if (point.BC[dim] == 1) { // Free DOF
+            if (point.BC[dim] == 1) {
                 int dof_idx = point.DOF[dim] - 1;
                 if (dof_idx >= 0 && dof_idx < dx.size()) {
-                    double disp = dx(dof_idx);
-                    point.x[dim] += disp;
-                    max_disp = std::max(max_disp, std::abs(disp));
-                    updated_count++;
+                    point.x[dim] += dx(dof_idx);
                 }
             }
         }
     }
 
-    std::cout << "Updated " << updated_count << " DOFs with max displacement: " << max_disp << std::endl;
-
-    // Regenerate neighbor lists after updating positions
-    // generate_neighbour_list(PD, point_list, delta);
-
     return point_list;
 }
-
 
 #endif // UPDATE_H

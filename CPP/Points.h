@@ -10,6 +10,7 @@ public:
     int Nr{};                                               // Nr - position number or number of points
     Eigen::Vector3d X = Eigen::Vector3d::Zero();            // X material coordinates
     Eigen::Vector3d x = Eigen::Vector3d::Zero();            // x spatial coordinates
+    Eigen::Vector3d x_prev = Eigen::Vector3d::Zero();       // previous step x spatial coordinates
     double volume{};                                        // Volume
     std::vector<std::vector<int>> neighbour_list_1N;        // consolidated neighbour_list containing 1-neighbour interaction
     std::vector<std::vector<int>> neighbour_list_2N;        // consolidated neighbour_list containing 2-neighbour interaction
