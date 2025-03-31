@@ -1,4 +1,3 @@
-
 #include "mesh.h"
 
 void VerifyBoundaryConditions(const std::vector<Points>& points, int PD) {
@@ -52,6 +51,10 @@ void AssignDOF(std::vector<Points>& point_list, int PD, int& DOFs) {
             }
         }
     }
+    for (const auto& point : point_list) {
+        std::cout << "Point " << point.Nr << " DOFs: " << point.DOF.transpose() << std::endl;
+    }
+
 }
 
 void AssignVolumes(std::vector<Points>& point_list, int PD, double Delta) {
@@ -64,55 +67,57 @@ void AssignVolumes(std::vector<Points>& point_list, int PD, double Delta) {
     }
 }
 
-std::vector<Points> generate_mesh(int PD, double d, double domain_size, int number_of_points,
-                                  int number_of_patches, double Delta, int number_of_right_patches,
-                                  const std::string& DEFflag, int& DOFs) {
+std::vector<Points> generate_mesh(int PD, double domain_size, int number_of_patches, double Delta, int number_of_right_patches, double d, const std::string& DEFflag, int DOFs) {
     double extended_domain_size = domain_size + (number_of_patches + number_of_right_patches) * Delta;
     Eigen::Matrix3d FF = Compute_FF(PD, d, DEFflag);
     std::vector<Points> point_list;
     int index = 0;
+    int total_points = extended_domain_size / Delta;
+    int number_of_points = total_points - (number_of_right_patches + number_of_patches);
 
     switch (PD) {
         case 1: {
-            const int total_points = number_of_patches + number_of_points + number_of_right_patches;
             for (int i = 0; i < total_points; i++) {
                 Points point;
                 point.Nr = index++;
                 point.X = Eigen::Vector3d(Delta / 2 + i * Delta, 0, 0);
-                point.x = point.X;
 
-                if (i < number_of_patches || i >= number_of_patches + number_of_points) {
+                if (i < number_of_patches) {
                     point.BC = Eigen::Vector3i(0, 0, 0);
                     point.Flag = "Patch";
-                    point.x = point.X;
+                    point.x = point.X;  // Fixed left patches (no deformation)
+                } else if (i >= number_of_patches + number_of_points) {
+                    point.BC = Eigen::Vector3i(0, 0, 0);
+                    point.Flag = "RightPatch";
+                    point.x = FF * point.X;  // Apply deformation gradient to right patches
                 } else {
                     point.BC = Eigen::Vector3i(1, 0, 0);
                     point.Flag = "Point";
-                    point.BCval = FF * point.X - point.X;
+                    point.x = point.X;  // Apply deformation gradient to regular points
                 }
+
                 point_list.push_back(point);
             }
             break;
         }
 
         case 2: {
-            const int total_points = number_of_patches + number_of_points + number_of_right_patches;
             for (int i = 0; i < number_of_points; i++) {
                 for (int j = 0; j < total_points; j++) {
                     Points point;
                     point.Nr = index++;
                     point.X = Eigen::Vector3d(Delta / 2 + j * Delta, Delta / 2 + i * Delta, 0);
-                    point.x = point.X;
 
                     if (j < number_of_patches || j >= number_of_patches + number_of_points) {
                         point.BC = Eigen::Vector3i(0, 0, 0);
                         point.Flag = "Patch";
-                        point.x = point.X;
+                        point.x = point.X;  // Fixed patches (no deformation)
                     } else {
                         point.BC = Eigen::Vector3i(1, 1, 0);
                         point.Flag = "Point";
-                        point.BCval = FF * point.X - point.X;
+                        point.x = FF * point.X;  // Apply deformation gradient to regular points
                     }
+
                     point_list.push_back(point);
                 }
             }
@@ -120,24 +125,23 @@ std::vector<Points> generate_mesh(int PD, double d, double domain_size, int numb
         }
 
         case 3: {
-            const int total_points = number_of_patches + number_of_points + number_of_right_patches;
             for (int i = 0; i < number_of_points; i++) {
                 for (int j = 0; j < number_of_points; j++) {
                     for (int k = 0; k < total_points; k++) {
                         Points point;
                         point.Nr = index++;
                         point.X = Eigen::Vector3d(Delta / 2 + k * Delta, Delta / 2 + j * Delta, Delta / 2 + i * Delta);
-                        point.x = point.X;
 
                         if (k < number_of_patches || k >= number_of_patches + number_of_points) {
                             point.BC = Eigen::Vector3i(0, 0, 0);
                             point.Flag = "Patch";
-                            point.x = point.X;
+                            point.x = point.X;  // Fixed patches (no deformation)
                         } else {
                             point.BC = Eigen::Vector3i(1, 1, 1);
                             point.Flag = "Point";
-                            point.BCval = FF * point.X - point.X;
+                            point.x = FF * point.X;  // Apply deformation gradient to regular points
                         }
+
                         point_list.push_back(point);
                     }
                 }
@@ -153,5 +157,4 @@ std::vector<Points> generate_mesh(int PD, double d, double domain_size, int numb
     AssignDOF(point_list, PD, DOFs);
     AssignVolumes(point_list, PD, Delta);
     return point_list;
-
 }

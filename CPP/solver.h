@@ -81,8 +81,9 @@ inline Eigen::Matrix3d compute_Kab_3(const Eigen::Vector3d& xi_1, const Eigen::V
 inline void calculate_r(int PD, std::vector<Points>& point_list, double C1, double C2, double C3, double delta) {
     const double pi = 3.14159265358979323846;
     double Vh = (4.0 / 3.0) * pi * (delta * delta * delta);
-
     for (size_t i = 0; i < point_list.size(); i++) {
+        std::cout << "Before Calculation - Point " << i << " Ra_sum: " << point_list[i].Ra_sum.transpose() << std::endl;
+
         point_list[i].psi = 0.0;
         point_list[i].Ra_1 = Eigen::Vector3d::Zero();
         point_list[i].Ra_2 = Eigen::Vector3d::Zero();
@@ -91,21 +92,42 @@ inline void calculate_r(int PD, std::vector<Points>& point_list, double C1, doub
         point_list[i].Kab_2 = Eigen::Matrix3d::Zero();
         point_list[i].Kab_3 = Eigen::Matrix3d::Zero();
 
+
         // 1-Neighbors
         for (size_t j = 0; j < point_list[i].neighbour_list_1N.size(); j++) {
             int neighbor_idx = point_list[i].neighbour_list_1N[j][0];
 
+            // Use reference (X) for original length and current (x) for deformed length
             Eigen::Vector3d Xi_1 = point_list[i].X - point_list[neighbor_idx].X;
             Eigen::Vector3d xi_1 = point_list[i].x - point_list[neighbor_idx].x;
 
-            double L = Xi_1.norm();
-            double l = xi_1.norm();
+            std::cout << "Point " << i << " - Neighbor " << neighbor_idx<< " | Xi_1: " << Xi_1.transpose()<< " | xi_1: " << xi_1.transpose();
+
+            double L = std::abs(Xi_1.norm());
+            double l = std::abs(xi_1.norm());
+            std::cout<< " | L: " << L << " | l: " << l << std::endl;
+
+            // Calculate stretch
+            if (l < L)
+            {
+                std::cout<<" WARNING: l is less than L!"<<std::endl;
+            }
+            if (l == L)
+            {
+                std::cout<<" WARNING: l is EQUAL TO L!"<<std::endl;
+            }
+            double stretch = (l - L) / L;
+
+            std::cout << "Point " << i << " - Neighbor " << neighbor_idx << " | L: " << L << " | l: " << l << " | Stretch: " << stretch << std::endl;
 
             point_list[i].psi += compute_psi(C1, L, l);
             point_list[i].V_eff = Vh / point_list[i].n1;
 
             point_list[i].Ra_1 += xi_1 * C1 * point_list[i].V_eff * ((1 / L) - (1 / l));
             point_list[i].Kab_1 += compute_Kab_1(xi_1, L, l, point_list[i].V_eff, C1);
+            std::cout << "Point " << i << " - Neighbor " << neighbor_idx << " | L: " << L << " | l: " << l << std::endl;
+            std::cout << "Computed Kab_1:\n" << point_list[i].Kab_1 << std::endl;
+
         }
 
         // 2-Neighbors
@@ -125,12 +147,23 @@ inline void calculate_r(int PD, std::vector<Points>& point_list, double C1, doub
                 double A = Xi.norm();
                 double a = xi.norm();
 
+                // Skip calculations if areas are too small
+                if (A < 1e-12 || a < 1e-12) {
+                    std::cout << "WARNING: Nearly zero area for Point " << i << " and 2N Neighbors "
+                              << neighbor1_idx << ", " << neighbor2_idx << std::endl;
+                    continue;
+                }
+
+                double stretch = (a - A) / A;
                 point_list[i].psi += compute_psi(C2, A, a);
                 point_list[i].V_eff = (Vh * Vh) / (point_list[i].n1 + point_list[i].n2);
 
                 Eigen::Vector3d calc = (xi_2.dot(xi_2) * xi_1 - (xi_1.dot(xi_2) * xi_2));
                 point_list[i].Ra_2 += 2 * C2 * ((1 / A) - (1 / a)) * point_list[i].V_eff * calc;
                 point_list[i].Kab_2 += compute_Kab_2(xi_1, xi_2, Xi_1, Xi_2, A, a, point_list[i].V_eff, C2);
+                std::cout << "Point " << i << " - 2N Neighbors " << neighbor1_idx << ", " << neighbor2_idx << " | A: " << A << " | a: " << a << std::endl;
+                std::cout << "Computed Kab_2:\n" << point_list[i].Kab_2 << std::endl;
+
             }
         }
 
@@ -154,6 +187,15 @@ inline void calculate_r(int PD, std::vector<Points>& point_list, double C1, doub
                 double V = Xi;
                 double v = xi;
 
+                // Skip calculations if volumes are too small
+                if (std::abs(V) < 1e-12 || std::abs(v) < 1e-12) {
+                    std::cout << "WARNING: Nearly zero volume for Point " << i << " and 3N Neighbors "
+                              << neighbor1_idx << ", " << neighbor2_idx << ", " << neighbor3_idx << std::endl;
+                    continue;
+                }
+
+                double stretch = (v - V) / V;
+
                 point_list[i].psi += compute_psi(C3, V, v);
                 point_list[i].V_eff = (Vh * Vh * Vh) / (point_list[i].n1 + point_list[i].n2 + point_list[i].n3);
 
@@ -162,13 +204,45 @@ inline void calculate_r(int PD, std::vector<Points>& point_list, double C1, doub
 
                 point_list[i].Ra_3 += 3 * C3 * ((1 / V) - (1 / v)) * point_list[i].V_eff * calc * calc1;
                 point_list[i].Kab_3 += compute_Kab_3(xi_1, xi_2, xi_3, Xi_1, Xi_2, Xi_3, V, v, point_list[i].V_eff, C3);
+                std::cout << "Point " << i << " - 3N Neighbors " << neighbor1_idx << ", " << neighbor2_idx << ", " << neighbor3_idx << " | V: " << V << " | v: " << v << std::endl;
+                std::cout << "Computed Kab_3:\n" << point_list[i].Kab_3 << std::endl;
+
             }
         }
 
-        point_list[i].Ra_sum = point_list[i].Ra_1 + point_list[i].Ra_2 + point_list[i].Ra_3;
-        point_list[i].Kab_sum = point_list[i].Kab_1 + point_list[i].Kab_2 + point_list[i].Kab_3;
+        point_list[i].Ra_sum += point_list[i].Ra_1 + point_list[i].Ra_2 + point_list[i].Ra_3;
+        point_list[i].Kab_sum += point_list[i].Kab_1 + point_list[i].Kab_2 + point_list[i].Kab_3;
+
+        // In calculate_r, add debug output
+        for (auto& point : point_list) {
+            if (point.Ra_sum.hasNaN()) {
+                std::cerr << "WARNING: NaN detected in residual for point " << point.Nr << std::endl;
+                // Reset to zero to prevent propagation
+                point.Ra_sum.setZero();
+            }
+
+            // Print some diagnostic info
+            if (point.Flag == "Point") {
+                std::cout << "Point " << point.Nr << " Ra_sum norm: " << point.Ra_sum.norm() << std::endl;
+            }
+        }
+
+        std::cout << "Point " << i << " V_eff: " << point_list[i].V_eff << std::endl;
+
+        std::cout << "Point " << i << " Ra_1: " << point_list[i].Ra_1.transpose() << std::endl;
+        std::cout << "Point " << i << " Ra_2: " << point_list[i].Ra_2.transpose() << std::endl;
+        std::cout << "Point " << i << " Ra_3: " << point_list[i].Ra_3.transpose() << std::endl;
+        std::cout << "Point " << i << " Ra_sum: " << point_list[i].Ra_sum.transpose() << std::endl;
+
+        std::cout << "Point " << i << " Kab_1:\n" << point_list[i].Kab_1 << std::endl;
+        std::cout << "Point " << i << " Kab_2:\n" << point_list[i].Kab_2 << std::endl;
+        std::cout << "Point " << i << " Kab_3:\n" << point_list[i].Kab_3 << std::endl;
+        std::cout << "Point " << i << " Final Kab_sum:\n" << point_list[i].Kab_sum << std::endl;
+
+        std::cout << "Point " << i << " psi: " << point_list[i].psi << std::endl;
+
+        std::cout << "After Calculation - Point " << i << " Ra_sum: " << point_list[i].Ra_sum.transpose() << std::endl;
     }
 }
-
 
 #endif // SOLVER_H

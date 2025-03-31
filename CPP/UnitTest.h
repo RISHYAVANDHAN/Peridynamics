@@ -18,7 +18,7 @@
 void testEnergyCalculation();
 void testResidualCalculation();
 void testStiffnessCalculation();
-void runUnitTests();
+void runUnitTests(int PD);
 
 
 #endif // UNITTEST_H
