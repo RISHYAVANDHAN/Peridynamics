@@ -19,13 +19,14 @@ void write_vtk(const std::vector<Points>& points, const std::string& filename) {
     file << "ASCII\n";
     file << "DATASET UNSTRUCTURED_GRID\n";
 
-    // Write point coordinates (current deformed configuration)
+    // Write point coordinates - horizontal 1D layout
     file << "POINTS " << points.size() << " double\n";
     for (const auto& point : points) {
-        file << point.x[0] << " " << point.x[1] << " " << point.x[2] << "\n";
+        // Using X[0] for proper original spacing, y=0, z=0 for clean 1D view
+        file << point.X[0] << " 0.0 0.0\n";
     }
 
-    // Write cell data (each point is a cell)
+    // Write cell data (each point is a vertex cell)
     file << "CELLS " << points.size() << " " << 2 * points.size() << "\n";
     for (size_t i = 0; i < points.size(); ++i) {
         file << "1 " << i << "\n";
@@ -40,39 +41,36 @@ void write_vtk(const std::vector<Points>& points, const std::string& filename) {
     // Start point data section
     file << "POINT_DATA " << points.size() << "\n";
 
-    // Output volume as a scalar
+    // Output point type (0=patch, 1=point)
+    file << "SCALARS point_type int 1\n";
+    file << "LOOKUP_TABLE point_type_table\n";
+    for (const auto& point : points) {
+        file << (point.Flag == "Point" ? 1 : 0) << "\n";
+    }
+
+    // Color lookup table (RED patches, BLUE points)
+    file << "LOOKUP_TABLE point_type_table 2\n";
+    file << "1.0 0.0 0.0 1.0\n";  // RED for patches (0)
+    file << "0.0 0.0 1.0 1.0\n";  // BLUE for points (1)
+
+    // Output volume
     file << "SCALARS volume double 1\n";
     file << "LOOKUP_TABLE default\n";
     for (const auto& point : points) {
         file << point.volume << "\n";
     }
 
-    // Output displacement magnitude as a scalar
+    // Output displacement magnitude
     file << "SCALARS displacement_magnitude double 1\n";
     file << "LOOKUP_TABLE default\n";
     for (const auto& point : points) {
-        // Calculate displacement magnitude
         double dx = point.x[0] - point.X[0];
         double dy = point.x[1] - point.X[1];
         double dz = point.x[2] - point.X[2];
-        double disp_mag = sqrt(dx*dx + dy*dy + dz*dz);
-        file << disp_mag << "\n";
+        file << sqrt(dx*dx + dy*dy + dz*dz) << "\n";
     }
 
-    // Output point type (Patch=0, Point=1) for visualization
-    file << "SCALARS point_type int 1\n";
-    file << "LOOKUP_TABLE point_type_table\n";
-    for (const auto& point : points) {
-        int type_value = (point.Flag == "Patch") ? 0 : 1;
-        file << type_value << "\n";
-    }
-
-    // Create a custom lookup table for point types
-    file << "LOOKUP_TABLE point_type_table 2\n";
-    file << "1.0 0.0 0.0 1.0\n";  // Red for Patch points
-    file << "0.0 0.0 1.0 1.0\n";  // Blue for regular Points
-
-    // Output boundary condition flags as a vector
+    // Output boundary conditions
     file << "VECTORS boundary_condition double\n";
     for (const auto& point : points) {
         file << point.BC[0] << " " << point.BC[1] << " " << point.BC[2] << "\n";
@@ -85,20 +83,18 @@ void write_vtk(const std::vector<Points>& points, const std::string& filename) {
         file << point.psi << "\n";
     }
 
-    // If there are displacements, output them as vectors
+    // Output displacements
     file << "VECTORS displacement double\n";
     for (const auto& point : points) {
-        double dx = point.x[0] - point.X[0];
-        double dy = point.x[1] - point.X[1];
-        double dz = point.x[2] - point.X[2];
-        file << dx << " " << dy << " " << dz << "\n";
+        file << (point.x[0]-point.X[0]) << " "
+             << (point.x[1]-point.X[1]) << " "
+             << (point.x[2]-point.X[2]) << "\n";
     }
 
     file.close();
     std::cout << "VTK file written to: " << filename << std::endl;
 }
 
-// Optional: Helper function to visualize residual forces during Newton-Raphson iterations
 void write_residual_vtk(const std::vector<Points>& points, const std::string& filename, int iteration) {
     std::string iter_filename = filename + "_iter_" + std::to_string(iteration) + ".vtk";
     std::ofstream file(iter_filename);
@@ -112,52 +108,48 @@ void write_residual_vtk(const std::vector<Points>& points, const std::string& fi
     file << "ASCII\n";
     file << "DATASET UNSTRUCTURED_GRID\n";
 
-    // Write point coordinates (current configuration)
+    // Horizontal 1D point layout
     file << "POINTS " << points.size() << " double\n";
     for (const auto& point : points) {
-        file << point.x[0] << " " << point.x[1] << " " << point.x[2] << "\n";
+        file << point.X[0] << " 0.0 0.0\n";
     }
 
-    // Write cell data
+    // Cell data
     file << "CELLS " << points.size() << " " << 2 * points.size() << "\n";
     for (size_t i = 0; i < points.size(); ++i) {
         file << "1 " << i << "\n";
     }
 
-    // Cell types
     file << "CELL_TYPES " << points.size() << "\n";
     for (size_t i = 0; i < points.size(); ++i) {
         file << "1\n";
     }
 
-    // Start point data section
     file << "POINT_DATA " << points.size() << "\n";
 
-    // Output residual force magnitudes as a scalar
+    // Point type coloring
+    file << "SCALARS point_type int 1\n";
+    file << "LOOKUP_TABLE point_type_table\n";
+    for (const auto& point : points) {
+        file << (point.Flag == "Point" ? 1 : 0) << "\n";
+    }
+
+    file << "LOOKUP_TABLE point_type_table 2\n";
+    file << "1.0 0.0 0.0 1.0\n";  // RED patches
+    file << "0.0 0.0 1.0 1.0\n";  // BLUE points
+
+    // Residual magnitude
     file << "SCALARS residual_magnitude double 1\n";
     file << "LOOKUP_TABLE default\n";
     for (const auto& point : points) {
-        double res_mag = point.Ra_sum.norm();
-        file << res_mag << "\n";
+        file << point.Ra_sum.norm() << "\n";
     }
 
-    // Output residual forces as vectors
+    // Residual vectors
     file << "VECTORS residual_force double\n";
     for (const auto& point : points) {
         file << point.Ra_sum[0] << " " << point.Ra_sum[1] << " " << point.Ra_sum[2] << "\n";
     }
-
-    // Output point type (to maintain color distinction)
-    file << "SCALARS point_type int 1\n";
-    file << "LOOKUP_TABLE point_type_table\n";
-    for (const auto& point : points) {
-        int type_value = (point.Flag == "Patch") ? 0 : 1;
-        file << type_value << "\n";
-    }
-
-    file << "LOOKUP_TABLE point_type_table 2\n";
-    file << "1.0 0.0 0.0 1.0\n";  // Red for Patch points
-    file << "0.0 0.0 1.0 1.0\n";  // Blue for regular Points
 
     file.close();
     std::cout << "Residual VTK file written to: " << iter_filename << std::endl;

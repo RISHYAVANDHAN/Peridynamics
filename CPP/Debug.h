@@ -1,103 +1,114 @@
-#ifndef DEBUG_H
-#define DEBUG_H
+#ifndef DEBUG_UTILS_H
+#define DEBUG_UTILS_H
 
-#include <vector>
 #include <iostream>
-#include <iomanip> // For better formatting
+#include <iomanip>
+#include <vector>
 #include <Eigen/Dense>
-#include <Eigen/Sparse>
+#include "Points.h"
 
-void debug_it(int PD, std::vector<Points>& point_list, const Eigen::VectorXd& R, const Eigen::SparseMatrix<double>& K) {
-    std::cout << "\n=== Debug Output ===" << std::endl;
+// Debug verbosity levels
+enum class DebugLevel {
+    NONE = 0,   // No debugging
+    LOW = 1,    // Minimal output
+    MEDIUM = 2, // Moderate detail
+    HIGH = 3,   // Comprehensive output
+    EXTREME = 4 // Extremely detailed
+};
 
-    // Print sizes of residual vector and stiffness matrix
-    std::cout << "Size of Residual Vector (R): " << R.size() << " (Expected: " << R.size() << " DOFs)" << std::endl;
-    std::cout << "Size of Stiffness Matrix (K): " << K.rows() << "x" << K.cols()
-              << " (Expected: " << K.rows() << "x" << K.cols() << ")" << std::endl;
-    std::cout << "Number of Non-Zero Entries in K: " << K.nonZeros() << std::endl;
+class DebugUtils {
+public:
+    // Declare the static member with extern
+    static DebugLevel currentLevel;
 
-    // Print residual vector (first 10 entries for brevity)
-    std::cout << "\nFirst 10 Entries of Residual Vector (R):" << std::endl;
-    for (int i = 0; i < std::min(10, static_cast<int>(R.size())); ++i) {
-        std::cout << "R[" << i << "] = " << R(i) << std::endl;
+    // Set debug level globally
+    static void setDebugLevel(DebugLevel level) {
+        currentLevel = level;
     }
 
-    // Print stiffness matrix (first 5x5 block for brevity)
-    std::cout << "\nFirst 5x5 Block of Stiffness Matrix (K):" << std::endl;
-    for (Eigen::Index i = 0; i < std::min(static_cast<Eigen::Index>(5), K.rows()); ++i) {
-        for (Eigen::Index j = 0; j < std::min(static_cast<Eigen::Index>(5), K.cols()); ++j) {
-            std::cout << std::setw(10) << K.coeff(i, j) << " ";
-        }
-        std::cout << std::endl;
-    }
-
-    // Print detailed information for each point
-    for (const auto& i : point_list) {
-        std::cout << "\nPoint Nr: " << i.Nr << std::endl;
-        std::cout << "  Reference Position (X): [" << i.X.transpose() << "]" << std::endl;
-        std::cout << "  Current Position (x): [" << i.x.transpose() << "]" << std::endl;
-        std::cout << "  Volume: " << i.volume << std::endl;
-
-        // Print boundary conditions and flag
-        std::cout << "  BC: " << i.BC.transpose() << ", Flag: " << i.Flag << std::endl;
-
-        // Print stiffness matrices
-        std::cout << "  Stiffness Matrix (Kab_1):\n" << i.Kab_1 << std::endl;
-        std::cout << "  Stiffness Matrix (Kab_sum):\n" << i.Kab_sum << std::endl;
-
-        // Print residual vector
-        std::cout << "  Residual Vector (Ra_sum): [" << i.Ra_sum.transpose() << "]" << std::endl;
-
-        // Print neighbor lists
-        std::cout << "  Neighbors of Point " << i.Nr << ":" << std::endl;
-        if (PD == 1) {
-            std::cout << "    1-Neighbors: ";
-            for (const auto& n : i.neighbour_list_1N) {
-                std::cout << "{ ";
-                for (const int val : n) std::cout << val << " ";
-                std::cout << "} ";
-            }
-            std::cout << "\n    Number of 1-neighbors: " << i.n1 << std::endl;
-        } else if (PD == 2) {
-            std::cout << "    1-Neighbors: ";
-            for (const auto& n : i.neighbour_list_1N) {
-                std::cout << "{ ";
-                for (const int val : n) std::cout << val << " ";
-                std::cout << "} ";
-            }
-            std::cout << "\n    2-Neighbors: ";
-            for (const auto& n : i.neighbour_list_2N) {
-                std::cout << "{ ";
-                for (const int val : n) std::cout << val << " ";
-                std::cout << "} ";
-            }
-            std::cout << "\n    Number of 1-neighbors: " << i.n1 << ", Number of 2-neighbors: " << i.n2 << std::endl;
-        } else if (PD == 3) {
-            std::cout << "    1-Neighbors: ";
-            for (const auto& n : i.neighbour_list_1N) {
-                std::cout << "{ ";
-                for (const int val : n) std::cout << val << " ";
-                std::cout << "} ";
-            }
-            std::cout << "\n    2-Neighbors: ";
-            for (const auto& n : i.neighbour_list_2N) {
-                std::cout << "{ ";
-                for (const int val : n) std::cout << val << " ";
-                std::cout << "} ";
-            }
-            std::cout << "\n    3-Neighbors: ";
-            for (const auto& n : i.neighbour_list_3N) {
-                std::cout << "{ ";
-                for (const int val : n) std::cout << val << " ";
-                std::cout << "} ";
-            }
-            std::cout << "\n    Number of 1-neighbors: " << i.n1 << ", Number of 2-neighbors: " << i.n2
-                      << ", Number of 3-neighbors: " << i.n3 << std::endl;
+    // Conditional debug print for force calculations
+    static void printForceDebug(int pointNr, double L, double l, double stretch,
+                                const Eigen::Vector3d& Ra_1,
+                                const Eigen::Vector3d& Ra_2,
+                                const Eigen::Vector3d& Ra_3) {
+        if (currentLevel >= DebugLevel::MEDIUM) {
+            std::cout << "Force Debug [Point " << pointNr << "]:\n"
+                      << "  Reference Length (L): " << L << "\n"
+                      << "  Current Length (l): " << l << "\n"
+                      << "  Stretch: " << stretch << "\n"
+                      << "  Ra_1: " << Ra_1.transpose() << "\n"
+                      << "  Ra_2: " << Ra_2.transpose() << "\n"
+                      << "  Ra_3: " << Ra_3.transpose() << "\n";
         }
     }
 
-    std::cout << "\n=== End of Debug Output ===" << std::endl;
-}
+    // Detailed neighbor list inspection
+    static void printNeighborDetails(const Points& point, int PD) {
+        if (currentLevel >= DebugLevel::MEDIUM) {
+            std::cout << "Neighbor Details [Point " << point.Nr << "]:\n";
 
+            std::cout << "  1-Neighbors (" << point.n1 << "): ";
+            for (const auto& n : point.neighbour_list_1N) {
+                std::cout << "{ ";
+                for (int val : n) std::cout << val << " ";
+                std::cout << "} ";
+            }
+            std::cout << "\n";
 
-#endif // DEBUG_H
+            if (PD >= 2) {
+                std::cout << "  2-Neighbors (" << point.n2 << "): ";
+                for (const auto& n : point.neighbour_list_2N) {
+                    std::cout << "{ ";
+                    for (int val : n) std::cout << val << " ";
+                    std::cout << "} ";
+                }
+                std::cout << "\n";
+            }
+
+            if (PD == 3) {
+                std::cout << "  3-Neighbors (" << point.n3 << "): ";
+                for (const auto& n : point.neighbour_list_3N) {
+                    std::cout << "{ ";
+                    for (int val : n) std::cout << val << " ";
+                    std::cout << "} ";
+                }
+                std::cout << "\n";
+            }
+        }
+    }
+
+    // Boundary condition inspection
+    static void printBoundaryConditions(const Points& point) {
+        if (currentLevel >= DebugLevel::LOW) {
+            std::cout << "Boundary Conditions [Point " << point.Nr << "]:\n"
+                      << "  Flag: " << point.Flag << "\n"
+                      << "  BC: " << point.BC.transpose() << "\n"
+                      << "  DOF: " << point.DOF.transpose() << "\n"
+                      << "  DOC: " << point.DOC.transpose() << "\n";
+        }
+    }
+
+    // Configuration comparison
+    static void compareConfigurations(const Points& point) {
+        if (currentLevel >= DebugLevel::LOW) {
+            std::cout << "Configuration Comparison [Point " << point.Nr << "]:\n"
+                      << "  Reference (X): " << point.X.transpose() << "\n"
+                      << "  Current (x):   " << point.x.transpose() << "\n"
+                      << "  Difference:    " << (point.x - point.X).transpose() << "\n";
+        }
+    }
+
+    // Energy and Volume Diagnostics
+    static void printEnergyDiagnostics(const Points& point) {
+        if (currentLevel >= DebugLevel::MEDIUM) {
+            std::cout << "Energy Diagnostics [Point " << point.Nr << "]:\n"
+                      << "  Effective Volume: " << point.V_eff << "\n"
+                      << "  Energy Density (psi): " << point.psi << "\n";
+        }
+    }
+};
+
+// Define the static member with inline to avoid multiple definition errors
+inline DebugLevel DebugUtils::currentLevel = DebugLevel::NONE;
+
+#endif // DEBUG_UTILS_H

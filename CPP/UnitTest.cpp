@@ -35,7 +35,7 @@ void testEnergyCalculation() {
     // Manual calculation for comparison
     double L = (p2.X - p1.X).norm();
     double l = (p2.x - p1.x).norm();
-    double expected_energy = 0.5 * C1 * L * std::pow((l / L - 1), 2);
+    double expected_energy = 0.5 * C1 * L * std::pow((l / L - 1), 2) ;
     std::cout << "L = " << L << ", l = " << l << std::endl;
 
     // Check energy calculation
@@ -66,15 +66,15 @@ void testResidualCalculation() {
     p2.neighbour_list_1N.push_back({0});
 
     // Print neighbor lists for debugging
-    std::cout << "DEBUG: Point 1 neighbors: ";
+    //std::cout << "DEBUG: Point 1 neighbors: ";
     for (const auto& neighbor : p1.neighbour_list_1N) {
-        std::cout << neighbor[0] << " ";
+        //std::cout << neighbor[0] << " ";
     }
     std::cout << std::endl;
 
-    std::cout << "DEBUG: Point 2 neighbors: ";
+    //std::cout << "DEBUG: Point 2 neighbors: ";
     for (const auto& neighbor : p2.neighbour_list_1N) {
-        std::cout << neighbor[0] << " ";
+        //std::cout << neighbor[0] << " ";
     }
     std::cout << std::endl;
 

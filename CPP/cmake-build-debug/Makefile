@@ -56,10 +56,10 @@ RM = "C:\Program Files\JetBrains\CLion 2024.2.2\bin\cmake\win\x64\bin\cmake.exe"
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = "C:\Users\srini\Downloads\FAU\Semwise Course\Programming Project\Peridynamics\CPP"
+CMAKE_SOURCE_DIR = "C:\Users\srini\Downloads\FAU\Semwise Course\Programming Project\Previous\Peridynamics\CPP"
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = "C:\Users\srini\Downloads\FAU\Semwise Course\Programming Project\Peridynamics\CPP\cmake-build-debug"
+CMAKE_BINARY_DIR = "C:\Users\srini\Downloads\FAU\Semwise Course\Programming Project\Previous\Peridynamics\CPP\cmake-build-debug"
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -86,9 +86,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start "C:\Users\srini\Downloads\FAU\Semwise Course\Programming Project\Peridynamics\CPP\cmake-build-debug\CMakeFiles" "C:\Users\srini\Downloads\FAU\Semwise Course\Programming Project\Peridynamics\CPP\cmake-build-debug\\CMakeFiles\progress.marks"
+	$(CMAKE_COMMAND) -E cmake_progress_start "C:\Users\srini\Downloads\FAU\Semwise Course\Programming Project\Previous\Peridynamics\CPP\cmake-build-debug\CMakeFiles" "C:\Users\srini\Downloads\FAU\Semwise Course\Programming Project\Previous\Peridynamics\CPP\cmake-build-debug\\CMakeFiles\progress.marks"
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start "C:\Users\srini\Downloads\FAU\Semwise Course\Programming Project\Peridynamics\CPP\cmake-build-debug\CMakeFiles" 0
+	$(CMAKE_COMMAND) -E cmake_progress_start "C:\Users\srini\Downloads\FAU\Semwise Course\Programming Project\Previous\Peridynamics\CPP\cmake-build-debug\CMakeFiles" 0
 .PHONY : all
 
 # The main clean target
@@ -128,6 +128,30 @@ CPP/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\CPP.dir\build.make CMakeFiles/CPP.dir/build
 .PHONY : CPP/fast
 
+UnitTest.obj: UnitTest.cpp.obj
+.PHONY : UnitTest.obj
+
+# target to build an object file
+UnitTest.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\CPP.dir\build.make CMakeFiles/CPP.dir/UnitTest.cpp.obj
+.PHONY : UnitTest.cpp.obj
+
+UnitTest.i: UnitTest.cpp.i
+.PHONY : UnitTest.i
+
+# target to preprocess a source file
+UnitTest.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\CPP.dir\build.make CMakeFiles/CPP.dir/UnitTest.cpp.i
+.PHONY : UnitTest.cpp.i
+
+UnitTest.s: UnitTest.cpp.s
+.PHONY : UnitTest.s
+
+# target to generate assembly for a file
+UnitTest.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\CPP.dir\build.make CMakeFiles/CPP.dir/UnitTest.cpp.s
+.PHONY : UnitTest.cpp.s
+
 main.obj: main.cpp.obj
 .PHONY : main.obj
 
@@ -152,6 +176,30 @@ main.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\CPP.dir\build.make CMakeFiles/CPP.dir/main.cpp.s
 .PHONY : main.cpp.s
 
+mesh.obj: mesh.cpp.obj
+.PHONY : mesh.obj
+
+# target to build an object file
+mesh.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\CPP.dir\build.make CMakeFiles/CPP.dir/mesh.cpp.obj
+.PHONY : mesh.cpp.obj
+
+mesh.i: mesh.cpp.i
+.PHONY : mesh.i
+
+# target to preprocess a source file
+mesh.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\CPP.dir\build.make CMakeFiles/CPP.dir/mesh.cpp.i
+.PHONY : mesh.cpp.i
+
+mesh.s: mesh.cpp.s
+.PHONY : mesh.s
+
+# target to generate assembly for a file
+mesh.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\CPP.dir\build.make CMakeFiles/CPP.dir/mesh.cpp.s
+.PHONY : mesh.cpp.s
+
 # Help Target
 help:
 	@echo The following are some of the valid targets for this Makefile:
@@ -161,9 +209,15 @@ help:
 	@echo ... edit_cache
 	@echo ... rebuild_cache
 	@echo ... CPP
+	@echo ... UnitTest.obj
+	@echo ... UnitTest.i
+	@echo ... UnitTest.s
 	@echo ... main.obj
 	@echo ... main.i
 	@echo ... main.s
+	@echo ... mesh.obj
+	@echo ... mesh.i
+	@echo ... mesh.s
 .PHONY : help
 
 

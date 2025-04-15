@@ -1,0 +1,57 @@
+
+======================================================
+Number of DOFs: 10
+Number of Points: 13
+======================================================
+
+=== Iteration: 0 ===
+Residual Norm: 10.472 | Global Energy: 3.90625
+Stiffness Matrix: 10x10 with 28 non-zeros
+Completed iteration: 0
+
+=== Iteration: 1 ===
+Residual Norm: 10.3885 | Global Energy: 3.84425
+Stiffness Matrix: 10x10 with 28 non-zeros
+Completed iteration: 1
+
+=== Iteration: 2 ===
+Residual Norm: 10.3058 | Global Energy: 3.78325
+Stiffness Matrix: 10x10 with 28 non-zeros
+Completed iteration: 2
+
+=== Iteration: 3 ===
+Residual Norm: 10.2237 | Global Energy: 3.72325
+Stiffness Matrix: 10x10 with 28 non-zeros
+Completed iteration: 3
+
+=== Iteration: 4 ===
+Residual Norm: 10.1424 | Global Energy: 3.66425
+Stiffness Matrix: 10x10 with 28 non-zeros
+Completed iteration: 4
+
+=== Iteration: 5 ===
+Residual Norm: 10.0618 | Global Energy: 3.60625
+Stiffness Matrix: 10x10 with 28 non-zeros
+Completed iteration: 5
+
+=== Iteration: 6 ===
+Residual Norm: 9.98198 | Global Energy: 3.54925
+Stiffness Matrix: 10x10 with 28 non-zeros
+Completed iteration: 6
+
+=== Iteration: 7 ===
+Residual Norm: 9.90292 | Global Energy: 3.49325
+Stiffness Matrix: 10x10 with 28 non-zeros
+Completed iteration: 7
+
+=== Iteration: 8 ===
+Residual Norm: 9.82466 | Global Energy: 3.43825
+Stiffness Matrix: 10x10 with 28 non-zeros
+Completed iteration: 8
+
+=== Iteration: 9 ===
+Residual Norm: 9.7472 | Global Energy: 3.38425
+Stiffness Matrix: 10x10 with 28 non-zeros
+Completed iteration: 9
+
+Completed in 0 seconds

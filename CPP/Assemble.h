@@ -27,13 +27,12 @@ inline Eigen::VectorXd assembleResidual(const std::vector<Points>& points, int D
             if (p.BC[dim] == 1) {  // Free DOF
                 int idx = p.DOF[dim] - 1;  // Convert 1-based DOF to 0-based index
                 if (idx >= 0 && idx < DOFs) {
-                    R(idx) = p.Ra_sum(dim);  // Note: using = instead of += could be an issue!
+                    R(idx) += p.Ra_sum(dim);  // FIXED: Using += instead of = to accumulate residuals
                 }
             }
         }
     }
 
-    std::cout << "Global residual norm: " << R.norm() << std::endl;
     return R;
 }
 
@@ -72,7 +71,7 @@ inline Eigen::SparseMatrix<double> assembleStiffness(const std::vector<Points>& 
             }
         }
 
-        // Process 1-neighbor interactions
+        // Process 1-neighbor interactions (simplified for 1D)
         for (const auto& neighbor_indices : point.neighbour_list_1N) {
             int neighbor_idx = neighbor_indices[0];
             if (neighbor_idx < 0 || neighbor_idx >= points.size()) continue;
@@ -93,74 +92,16 @@ inline Eigen::SparseMatrix<double> assembleStiffness(const std::vector<Points>& 
                 }
             }
         }
-
-        // Process 2-neighbor interactions if applicable
-        if (PD >= 2) {
-            for (const auto& neighbor_indices : point.neighbour_list_2N) {
-                if (neighbor_indices.size() < 2) continue;
-
-                for (int n = 0; n < 2; ++n) {
-                    int neighbor_idx = neighbor_indices[n];
-                    if (neighbor_idx < 0 || neighbor_idx >= points.size()) continue;
-
-                    const auto& neighbor = points[neighbor_idx];
-
-                    for (int i = 0; i < PD; ++i) {
-                        if (point.BC[i] != 1) continue;
-                        int row = point.DOF[i] - 1;
-
-                        for (int j = 0; j < PD; ++j) {
-                            if (neighbor.BC[j] != 1) continue;
-                            int col = neighbor.DOF[j] - 1;
-
-                            if (row >= 0 && col >= 0 && row < DOFs && col < DOFs) {
-                                tripletList.push_back(T(row, col, -point.Kab_2(i, j)));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Process 3-neighbor interactions if applicable
-        if (PD == 3) {
-            for (const auto& neighbor_indices : point.neighbour_list_3N) {
-                if (neighbor_indices.size() < 3) continue;
-
-                for (int n = 0; n < 3; ++n) {
-                    int neighbor_idx = neighbor_indices[n];
-                    if (neighbor_idx < 0 || neighbor_idx >= points.size()) continue;
-
-                    const auto& neighbor = points[neighbor_idx];
-
-                    for (int i = 0; i < PD; ++i) {
-                        if (point.BC[i] != 1) continue;
-                        int row = point.DOF[i] - 1;
-
-                        for (int j = 0; j < PD; ++j) {
-                            if (neighbor.BC[j] != 1) continue;
-                            int col = neighbor.DOF[j] - 1;
-
-                            if (row >= 0 && col >= 0 && row < DOFs && col < DOFs) {
-                                tripletList.push_back(T(row, col, -point.Kab_3(i, j)));
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 
     // Create sparse matrix from triplets
     Eigen::SparseMatrix<double> K(DOFs, DOFs);
     K.setFromTriplets(tripletList.begin(), tripletList.end());
-    std::cout << "Assembled Stiffness Matrix (Sparse Format):\n";
-    for (int k = 0; k < K.outerSize(); ++k) {
-        for (Eigen::SparseMatrix<double>::InnerIterator it(K, k); it; ++it) {
-            std::cout << "K(" << it.row() << ", " << it.col() << ") = " << it.value() << std::endl;
-        }
-    }
 
+    // Verify matrix is not empty
+    if (K.nonZeros() == 0) {
+        std::cerr << "WARNING: Empty stiffness matrix created!" << std::endl;
+    }
 
     return K;
 }

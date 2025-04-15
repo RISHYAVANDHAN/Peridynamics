@@ -19,6 +19,7 @@ add_executable(CPP main.cpp
         mesh.cpp
         UnitTest.h
         UnitTest.cpp
+        solver.h
 )
 
 target_link_libraries(CPP PRIVATE Eigen3::Eigen)

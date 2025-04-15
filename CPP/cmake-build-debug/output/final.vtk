@@ -1,0 +1,102 @@
+# vtk DataFile Version 3.0
+VTK file for peridynamics mesh visualization
+ASCII
+DATASET UNSTRUCTURED_GRID
+POINTS 9 double
+0.5 0 0
+1.5 0 0
+2.5 0 0
+3.5 0 0
+4.5 0 0
+5.5 0 0
+6.5 0 0
+7.5 0 0
+0 0 0
+CELLS 9 18
+1 0
+1 1
+1 2
+1 3
+1 4
+1 5
+1 6
+1 7
+1 8
+CELL_TYPES 9
+1
+1
+1
+1
+1
+1
+1
+1
+1
+POINT_DATA 9
+SCALARS volume double 1
+LOOKUP_TABLE default
+1
+1
+1
+1
+1
+1
+1
+1
+1
+SCALARS displacement_magnitude double 1
+LOOKUP_TABLE default
+0
+0
+0
+0
+0
+0
+0
+0
+8.5
+SCALARS point_type int 1
+LOOKUP_TABLE point_type_table
+0
+0
+0
+1
+1
+1
+1
+1
+1
+LOOKUP_TABLE point_type_table 2
+1.0 0.0 0.0 1.0
+0.0 0.0 1.0 1.0
+VECTORS boundary_condition double
+0 0 0
+0 0 0
+0 0 0
+1 0 0
+1 0 0
+1 0 0
+1 0 0
+1 0 0
+0 0 0
+SCALARS strain_energy double 1
+LOOKUP_TABLE default
+0
+0
+0
+0
+0
+0
+0
+0
+0
+VECTORS displacement double
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+-8.5 0 0

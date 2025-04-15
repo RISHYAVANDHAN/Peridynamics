@@ -6,10 +6,12 @@
 #include "Points.h"
 #include "Neighbour.h"
 
-// === APPLY PRESCRIBED DISPLACEMENT === //
-std::vector<Points> update_prescribed(const std::vector<Points>& points, double LF, int PD, double delta) {
+// Apply prescribed displacement (simplified for 1D)
+inline std::vector<Points> update_prescribed(const std::vector<Points>& points, double LF, int PD, double d) {
     std::vector<Points> updated_points = points;
-    Eigen::Matrix3d FF = Compute_FF(PD, LF * 0.25, "EXP");  // Use 0.25 from your d parameter
+
+    // For 1D, we'll use a simple scaling factor
+    double scale_factor = 1.0 + (LF * d); // Based on your d=0.25
 
     for (auto& point : updated_points) {
         if (point.Flag == "Patch") {
@@ -17,47 +19,38 @@ std::vector<Points> update_prescribed(const std::vector<Points>& points, double 
             continue;
         }
         else if (point.Flag == "RightPatch") {
-            // Right patches move according to deformation gradient
-            point.x = FF * point.X;
-        }
-        else if (point.Flag == "Point") {
-            // Only apply prescribed displacement for constrained DOFs
-            if (PD == 1) {
-                if (point.BC[0] == 0) {
-                    point.x = FF * point.X;
-                }
-            }
+            // Right patches move according to prescribed displacement
+            point.x[0] = scale_factor * point.X[0];
         }
     }
+
     return updated_points;
 }
 
-// === APPLY SOLVER DISPLACEMENT === //
-std::vector<Points> update_displaced(std::vector<Points>& point_list, const Eigen::VectorXd& dx, int PD, double delta) {
-    // Store previous positions for all points before updating
-    for (auto& point : point_list) {
+// Apply displacement increment from solver
+inline std::vector<Points> update_displaced(std::vector<Points>& points, const Eigen::VectorXd& dx, int PD, double delta) {
+    // Store previous positions
+    for (auto& point : points) {
         point.x_prev = point.x;
     }
 
-    // Apply displacements only to unconstrained points
-    for (auto& point : point_list) {
+    // Apply displacements only to points with free DOFs
+    for (auto& point : points) {
+        // Skip patches
         if (point.Flag == "Patch" || point.Flag == "RightPatch") {
-            // Patches (both left and right) don't move from solver
             continue;
         }
 
-        // Regular points update from solver - only for free DOFs (BC==1)
-        for (int dim = 0; dim < PD; ++dim) {
-            if (point.BC[dim] == 1) {
-                int dof_idx = point.DOF[dim] - 1;
-                if (dof_idx >= 0 && dof_idx < dx.size()) {
-                    point.x[dim] += dx(dof_idx);
-                }
+        // For 1D, we only need to update the x-coordinate for points with BC[0]=1
+        if (point.BC[0] == 1) {
+            int dof_idx = point.DOF[0] - 1;
+            if (dof_idx >= 0 && dof_idx < dx.size()) {
+                point.x[0] += dx(dof_idx);
             }
         }
     }
 
-    return point_list;
+    return points;
 }
 
 #endif // UPDATE_H
